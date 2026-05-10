@@ -5,6 +5,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -14,8 +15,7 @@ import {
   main,
   container,
   header,
-  logoBox,
-  logoText,
+  logoImg,
   content,
   divider,
   bodyText,
@@ -24,6 +24,8 @@ import {
   footerText,
   footerSubtext,
 } from './email-template'
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 interface TaskInfo {
   title: string
@@ -67,10 +69,13 @@ export function TaskNotificationTemplate({
               <tbody>
                 <tr>
                   <td align="center">
-                    <div style={logoBox}>X</div>
-                    <Heading as="h1" style={logoText}>
-                      XENITH
-                    </Heading>
+                    <Img
+                      src={`${appUrl}/images/logo_shock.png`}
+                      alt="Logo"
+                      width={220}
+                      height={80}
+                      style={logoImg}
+                    />
                   </td>
                 </tr>
               </tbody>
@@ -123,7 +128,7 @@ export function TaskNotificationTemplate({
           <Section style={footer}>
             <Hr style={footerDivider} />
             <Text style={footerText}>
-              XENITH - Sistema de Gestion Integral
+              Sistema de Gestion Integral
             </Text>
             <Text style={footerSubtext}>
               Este es un correo automatico. No responda a este correo.

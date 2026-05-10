@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { Github, Linkedin, Twitter, Mail } from 'lucide-react'
 
@@ -30,10 +31,14 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <Link href="/inicio" className="inline-flex items-center space-x-2 group mb-4">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">X</span>
-              </div>
-              <span className="text-xl font-bold text-gradient">XENITH</span>
+              <Image
+                src="/images/logo_shock.png"
+                alt="Logo"
+                width={0}
+                height={0}
+                sizes="100vw"
+                className="h-40 w-auto object-contain"
+              />
             </Link>
             <p className="text-gray-400 text-sm max-w-md mt-4">
               Soluciones innovadoras en ingeniería robótica y desarrollo de software.

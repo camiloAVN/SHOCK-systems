@@ -75,6 +75,12 @@ export function checkRateLimit(
 
   // Increment count
   entry.count++
+
+  // Cuando se alcanza el límite, extender el bloqueo al blockDurationMs
+  if (entry.count >= config.maxAttempts && config.blockDurationMs) {
+    entry.resetTime = Date.now() + config.blockDurationMs
+  }
+
   rateLimitStore.set(key, entry)
 
   return {

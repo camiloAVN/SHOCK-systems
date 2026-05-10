@@ -5,6 +5,7 @@ import {
   Heading,
   Hr,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -15,6 +16,8 @@ interface EmailTemplateProps {
   subject: string
   body: string
 }
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 export function EmailTemplate({ subject, body }: EmailTemplateProps) {
   return (
@@ -34,10 +37,13 @@ export function EmailTemplate({ subject, body }: EmailTemplateProps) {
               <tbody>
                 <tr>
                   <td align="center">
-                    <div style={logoBox}>X</div>
-                    <Heading as="h1" style={logoText}>
-                      XENITH
-                    </Heading>
+                    <Img
+                      src={`${appUrl}/images/logo_shock.png`}
+                      alt="Logo"
+                      width={220}
+                      height={80}
+                      style={logoImg}
+                    />
                   </td>
                 </tr>
               </tbody>
@@ -57,7 +63,7 @@ export function EmailTemplate({ subject, body }: EmailTemplateProps) {
           <Section style={footer}>
             <Hr style={footerDivider} />
             <Text style={footerText}>
-              XENITH - Sistema de Gestion Integral
+              Sistema de Gestion Integral
             </Text>
             <Text style={footerSubtext}>
               Este es un comunicado interno. No responda a este correo.
@@ -94,25 +100,12 @@ export const header: React.CSSProperties = {
   textAlign: 'center',
 }
 
-export const logoBox: React.CSSProperties = {
-  display: 'inline-block',
-  width: '44px',
-  height: '44px',
-  borderRadius: '12px',
-  background: 'linear-gradient(135deg, #F5920A 0%, #F5B800 100%)',
-  lineHeight: '44px',
-  textAlign: 'center',
-  fontSize: '22px',
-  fontWeight: 800,
-  color: '#FFFFFF',
-}
-
-export const logoText: React.CSSProperties = {
-  color: '#FAFAFA',
-  fontSize: '20px',
-  fontWeight: 700,
-  margin: '10px 0 0 0',
-  letterSpacing: '3px',
+export const logoImg: React.CSSProperties = {
+  display: 'block',
+  margin: '0 auto',
+  maxWidth: '220px',
+  height: 'auto',
+  objectFit: 'contain',
 }
 
 export const content: React.CSSProperties = {

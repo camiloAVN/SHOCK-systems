@@ -1,15 +1,16 @@
 services:
   postgres:
-    image: postgres
-    container_name: xenith-postgres
+    image: postgres:16
+    container_name: shock_systems
     restart: unless-stopped
     environment:
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: xenith_db
+      POSTGRES_USER: shock
+      POSTGRES_PASSWORD: shock123
+      POSTGRES_DB: shock_db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - shock_systems_data:/var/lib/postgresql/data
 
 volumes:
-  postgres_data:
+  shock_systems_data:

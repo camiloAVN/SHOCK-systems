@@ -1,39 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { contactSchema } from '@/lib/validations/contact'
 import { ZodError } from 'zod'
+import { Resend } from 'resend'
+import { render } from '@react-email/components'
+import { ContactNotificationTemplate } from '@/components/email/contact-notification-template'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+const CONTACT_DESTINATION = 'camilo.vargas@xenith.com.co'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Validate request body
     const validatedData = contactSchema.parse(body)
 
-    // TODO: Here you would typically:
-    // 1. Save to database
-    // 2. Send email notification
-    // 3. Integrate with CRM
-    // For now, we'll just log it
-    console.log('Contact form submission:', validatedData)
+    const html = await render(
+      ContactNotificationTemplate({
+        name: validatedData.name,
+        email: validatedData.email,
+        phone: validatedData.phone,
+        company: validatedData.company,
+        subject: validatedData.subject,
+        message: validatedData.message,
+      })
+    )
 
-    // Simulate email sending (replace with actual email service)
-    // Example: await sendEmail({
-    //   to: 'contacto@xenith.com',
-    //   subject: `Nuevo contacto: ${validatedData.subject}`,
-    //   body: `
-    //     Nombre: ${validatedData.name}
-    //     Email: ${validatedData.email}
-    //     Teléfono: ${validatedData.phone || 'No proporcionado'}
-    //     Empresa: ${validatedData.company || 'No proporcionado'}
-    //     Mensaje: ${validatedData.message}
-    //   `
-    // })
+    const { error } = await resend.emails.send({
+      from: 'XENITH Contacto <onboarding@resend.dev>',
+      to: [CONTACT_DESTINATION],
+      replyTo: validatedData.email,
+      subject: `Nuevo contacto: ${validatedData.subject}`,
+      html,
+    })
+
+    if (error) {
+      console.error('Error sending contact email:', error)
+      return NextResponse.json(
+        { success: false, message: 'Error al enviar el mensaje' },
+        { status: 500 }
+      )
+    }
+
+    console.info(
+      `[CONTACT] New message from ${validatedData.email} (${validatedData.name})`
+    )
 
     return NextResponse.json(
-      {
-        success: true,
-        message: 'Mensaje enviado correctamente',
-      },
+      { success: true, message: 'Mensaje enviado correctamente' },
       { status: 200 }
     )
   } catch (error) {
@@ -51,10 +65,7 @@ export async function POST(request: NextRequest) {
     console.error('Contact form error:', error)
 
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Error al procesar el mensaje',
-      },
+      { success: false, message: 'Error al procesar el mensaje' },
       { status: 500 }
     )
   }

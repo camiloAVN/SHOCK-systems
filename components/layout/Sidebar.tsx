@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -217,12 +218,16 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-6 border-b border-gray-800">
+          <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">X</span>
-              </div>
-              <span className="text-lg font-bold text-gradient">XENITH</span>
+              <Image
+                src="/images/logo_shock.png"
+                alt="Logo"
+                width={0}
+                height={0}
+                sizes="100vw"
+                className="h-30 w-auto object-contain"
+              />
             </Link>
 
             {/* Close button (mobile only) */}

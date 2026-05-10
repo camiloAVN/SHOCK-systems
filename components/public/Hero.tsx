@@ -20,25 +20,13 @@ export function Hero() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-orange-500/20 mb-8"
-          >
-            <Sparkles className="w-4 h-4 text-orange-400" />
-            <span className="text-sm text-gray-300">
-              Innovación en Ingeniería Robótica y Software
-            </span>
-          </motion.div>
 
           {/* Main Heading */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-5xl sm:text-6xl lg:text-7xl font-bold mb-6"
+            className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-6"
           >
             Transformamos Ideas en{' '}
             <span className="text-gradient">Realidad Tecnológica</span>
@@ -49,7 +37,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl text-gray-400 max-w-3xl mx-auto mb-10"
+            className="text-md lg:text-xl text-gray-400 max-w-3xl mx-auto mb-10"
           >
             Soluciones innovadoras en ingeniería robótica y desarrollo de software
             para impulsar tu negocio al futuro. Experiencia, tecnología de punta y

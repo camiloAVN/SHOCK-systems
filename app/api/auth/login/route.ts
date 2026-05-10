@@ -63,14 +63,23 @@ export async function POST(request: NextRequest) {
         name: true,
         password: true,
         image: true,
+        isActive: true,
       },
     })
 
     // Use constant-time comparison to prevent timing attacks
     if (!user || !user.password) {
-      // Still do a hash comparison to prevent timing attacks
       await compare(password, '$2b$12$invalidhashtopreventtimingattacks')
       console.warn(`[SECURITY] Failed login attempt for email: ${email} from IP: ${clientIP}`)
+      return NextResponse.json(
+        { error: 'Credenciales invalidas' },
+        { status: 401, headers }
+      )
+    }
+
+    // Verificar cuenta activa (misma respuesta genérica para evitar enumeración)
+    if (!user.isActive) {
+      console.warn(`[SECURITY] Inactive user login attempt: ${email} from IP: ${clientIP}`)
       return NextResponse.json(
         { error: 'Credenciales invalidas' },
         { status: 401, headers }
