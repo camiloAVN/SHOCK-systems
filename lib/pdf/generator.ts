@@ -15,7 +15,13 @@ function readSettings(): PDFSettings | undefined {
 
 export async function generateQuotationPDF(quotation: any): Promise<Buffer> {
   const settings = readSettings()
-  const doc = QuotationPDFDocument({ quotation, settings })
+  const logoPath = join(process.cwd(), 'public', 'images', 'logo_shock.png')
+  let logoSrc: string | undefined
+  if (existsSync(logoPath)) {
+    const logoBuffer = readFileSync(logoPath)
+    logoSrc = `data:image/png;base64,${logoBuffer.toString('base64')}`
+  }
+  const doc = QuotationPDFDocument({ quotation, settings, logoSrc })
   const pdfStream = await ReactPDF.renderToStream(doc)
 
   const chunks: Buffer[] = []

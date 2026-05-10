@@ -17,6 +17,7 @@ interface AppSettings {
   fontSize: number
   headerColor: string
   headerText: string
+  logoSize: number
   nit: string
   companyEmail: string
   website: string
@@ -28,8 +29,9 @@ const DEFAULT: AppSettings = {
   pdfFormat: 'clasico',
   fontFamily: 'Helvetica',
   fontSize: 10,
-  headerColor: '#8b5cf6',
+  headerColor: '#f97316',
   headerText: '',
+  logoSize: 60,
   nit: '',
   companyEmail: '',
   website: '',
@@ -289,6 +291,26 @@ export default function ConfiguracionPage() {
                 value={settings.headerText}
                 onChange={(e) => set('headerText', e.target.value)}
               />
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm text-gray-400 mb-2">
+                Tamaño del logo —{' '}
+                <span className="text-gray-200 font-medium">{settings.logoSize} pt</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-6">S</span>
+                <input
+                  type="range"
+                  min={30}
+                  max={120}
+                  step={5}
+                  value={settings.logoSize}
+                  onChange={(e) => set('logoSize', Number(e.target.value))}
+                  className="flex-1 h-2 rounded-full appearance-none bg-gray-700 accent-orange-500 cursor-pointer"
+                />
+                <span className="text-xs text-gray-500 w-6">XL</span>
+              </div>
             </div>
           </div>
 

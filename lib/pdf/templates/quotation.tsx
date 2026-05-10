@@ -1,5 +1,5 @@
 import React from 'react'
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -9,6 +9,7 @@ export interface PDFSettings {
   fontSize: number
   headerColor: string
   headerText: string
+  logoSize: number
   nit: string
   companyEmail: string
   website: string
@@ -20,8 +21,9 @@ const DEFAULT_SETTINGS: PDFSettings = {
   pdfFormat: 'clasico',
   fontFamily: 'Helvetica',
   fontSize: 10,
-  headerColor: '#8b5cf6',
+  headerColor: '#f97316',
   headerText: '',
+  logoSize: 60,
   nit: '',
   companyEmail: '',
   website: '',
@@ -252,6 +254,14 @@ function buildStyles(s: PDFSettings) {
       paddingTop: 12,
       borderTop: '1 solid #e5e7eb',
     },
+    logoImage: {
+      height: s.logoSize,
+      maxWidth: s.logoSize * 3,
+    },
+    logoImageLight: {
+      height: s.logoSize,
+      maxWidth: s.logoSize * 3,
+    },
   })
 }
 
@@ -270,9 +280,10 @@ function buildCompanyInfo(s: PDFSettings): string {
 interface QuotationPDFProps {
   quotation: any
   settings?: PDFSettings
+  logoSrc?: string
 }
 
-export function QuotationPDFDocument({ quotation, settings: rawSettings }: QuotationPDFProps) {
+export function QuotationPDFDocument({ quotation, settings: rawSettings, logoSrc }: QuotationPDFProps) {
   const s = { ...DEFAULT_SETTINGS, ...rawSettings }
   const st = buildStyles(s)
   const companyInfo = buildCompanyInfo(s)
@@ -327,7 +338,9 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings }: Quota
       return (
         <View style={st.headerModerno}>
           <View>
-            <Text style={st.companyNameLight}>XENITH</Text>
+            {logoSrc
+              ? <Image src={logoSrc} style={st.logoImageLight} />
+              : <Text style={st.companyNameLight}>XENITH</Text>}
             {companyInfo ? <Text style={st.companyInfoLight}>{companyInfo}</Text> : null}
           </View>
           <View style={st.quotationInfoLight}>
@@ -341,7 +354,9 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings }: Quota
     if (isMinimalista) {
       return (
         <View style={st.headerMinimalista}>
-          <Text style={st.companyNameDark}>XENITH</Text>
+          {logoSrc
+            ? <Image src={logoSrc} style={st.logoImage} />
+            : <Text style={st.companyNameDark}>XENITH</Text>}
           {companyInfo ? <Text style={st.companyInfoDark}>{companyInfo}</Text> : null}
           <Text style={{ ...st.quotationNumber, marginTop: 8 }}>{quotation.quotationNumber}</Text>
           <Text style={st.quotationMeta}>{quotationMeta}</Text>
@@ -353,7 +368,9 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings }: Quota
     return (
       <View style={st.headerClasico}>
         <View>
-          <Text style={st.companyNameDark}>XENITH</Text>
+          {logoSrc
+            ? <Image src={logoSrc} style={st.logoImage} />
+            : <Text style={st.companyNameDark}>XENITH</Text>}
           {companyInfo ? <Text style={st.companyInfoDark}>{companyInfo}</Text> : null}
         </View>
         <View style={st.quotationInfo}>

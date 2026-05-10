@@ -1,9 +1,10 @@
 {
-  "pdfFormat": "minimalista",
+  "pdfFormat": "moderno",
   "fontFamily": "Helvetica",
   "fontSize": 10,
-  "headerColor": "#8b5cf6",
+  "headerColor": "#ec6409",
   "headerText": "ddddffff",
+  "logoSize": 100,
   "nit": "54234556",
   "companyEmail": "camiloosruc@gmail.com",
   "website": "",
