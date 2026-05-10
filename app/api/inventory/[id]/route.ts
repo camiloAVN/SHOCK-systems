@@ -144,7 +144,6 @@ export async function PUT(
     const data = {
       productId: validatedData.productId,
       serialNumber: validatedData.serialNumber || null,
-      assetTag: validatedData.assetTag || null,
       type: validatedData.type,
       status: validatedData.status,
       condition: validatedData.condition || null,
@@ -211,20 +210,11 @@ export async function PUT(
       )
     }
 
-    // Check for unique constraint violation
     if (error instanceof Error && error.message.includes('Unique constraint')) {
-      if (error.message.includes('serialNumber')) {
-        return NextResponse.json(
-          { error: 'Ya existe un item con ese numero de serie' },
-          { status: 400 }
-        )
-      }
-      if (error.message.includes('assetTag')) {
-        return NextResponse.json(
-          { error: 'Ya existe un item con esa etiqueta de activo' },
-          { status: 400 }
-        )
-      }
+      return NextResponse.json(
+        { error: 'Ya existe un item con ese numero de serie' },
+        { status: 400 }
+      )
     }
 
     console.error('Error updating inventory item:', error)

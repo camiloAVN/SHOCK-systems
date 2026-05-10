@@ -25,7 +25,8 @@ const routeToModule: Record<string, SystemModule> = {
   '/dashboard/terceros/contratistas': 'contratistas',
   '/dashboard/terceros/conceptos': 'conceptos',
   '/dashboard/categorias': 'categorias',
-  '/dashboard/historial': 'historial',
+  '/dashboard/configuracion': 'configuracion',
+  '/dashboard/tareas': 'tareas',
 }
 
 // Rutas que no requieren permisos específicos (accesibles para todos los usuarios autenticados)

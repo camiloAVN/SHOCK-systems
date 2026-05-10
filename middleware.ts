@@ -1,5 +1,9 @@
-import { auth } from "@/auth"
+import NextAuth from "next-auth"
+import { authConfig } from "@/auth.config"
 import { NextResponse } from "next/server"
+
+// Instancia edge-compatible: solo usa authConfig (sin bcrypt ni Prisma)
+const { auth } = NextAuth(authConfig)
 
 const PUBLIC_API_PREFIXES = ['/api/auth', '/api/contact']
 

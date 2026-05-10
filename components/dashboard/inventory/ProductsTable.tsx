@@ -40,7 +40,6 @@ export function ProductsTable({ products, onDelete }: ProductsTableProps) {
         <thead>
           <tr>
             <th className="w-16"></th>
-            <th>SKU</th>
             <th>Nombre</th>
             <th>Categoría</th>
             <th>Marca / Modelo</th>
@@ -60,7 +59,6 @@ export function ProductsTable({ products, onDelete }: ProductsTableProps) {
                   size="sm"
                 />
               </td>
-              <td className="font-mono text-sm">{product.sku}</td>
               <td className="font-medium">{product.name}</td>
               <td>
                 {product.category && (

@@ -1,71 +1,14 @@
-import NextAuth, { type DefaultSession } from "next-auth"
+import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/db/prisma"
 import { compare } from "bcrypt"
 import { checkRateLimit, resetRateLimit, RATE_LIMIT_CONFIGS } from "@/lib/security/rate-limiter"
-
-// ── Type augmentation ────────────────────────────────────────────────────────
-
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      role: string
-      isActive: boolean
-    } & DefaultSession["user"]
-  }
-  interface User {
-    role?: string
-    isActive?: boolean
-  }
-}
-
-// ── Auth configuration ───────────────────────────────────────────────────────
-
-const isProd = process.env.NODE_ENV === 'production'
+import { authConfig } from "@/auth.config"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  secret: process.env.AUTH_SECRET,
-  session: {
-    strategy: "jwt",
-    maxAge: 8 * 60 * 60,    // 8 h
-    updateAge: 60 * 60,     // refresh cada 1 h
-  },
-  cookies: {
-    sessionToken: {
-      name: isProd ? '__Secure-authjs.session-token' : 'authjs.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        secure: isProd,
-      },
-    },
-    callbackUrl: {
-      name: isProd ? '__Secure-authjs.callback-url' : 'authjs.callback-url',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        secure: isProd,
-      },
-    },
-    csrfToken: {
-      name: isProd ? '__Host-authjs.csrf-token' : 'authjs.csrf-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        secure: isProd,
-      },
-    },
-  },
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   providers: [
     Credentials({
       name: "credentials",
@@ -141,46 +84,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.email = user.email
-        token.name = user.name
-        token.picture = user.image
-        token.role = user.role
-        token.isActive = user.isActive
-        token.iat = Math.floor(Date.now() / 1000)
-      }
-
-      // Expiración absoluta: 24 h desde emisión
-      const tokenAge = Math.floor(Date.now() / 1000) - ((token.iat as number) || 0)
-      if (tokenAge > 24 * 60 * 60) {
-        console.warn(`[SECURITY] Token expired for user: ${token.email}`)
-        return { ...token, expired: true }
-      }
-
-      return token
-    },
-    async session({ session, token }) {
-      if (token.expired) {
-        return { ...session, user: undefined, expires: new Date(0).toISOString() }
-      }
-
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.email = token.email as string
-        session.user.name = token.name as string | null
-        session.user.image = token.picture as string | null
-        session.user.role = token.role as string
-        session.user.isActive = token.isActive as boolean
-      }
-      return session
-    },
-    async signIn({ user }) {
-      return !!user?.email
-    },
-  },
   events: {
     async signIn({ user }) {
       console.info(`[AUTH] Sign in event: ${user.email}`)

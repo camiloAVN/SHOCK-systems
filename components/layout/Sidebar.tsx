@@ -23,7 +23,7 @@ import {
   Briefcase,
   UserCircle,
   ListTodo,
-  History,
+  Settings,
   Mail,
   LucideIcon,
 } from 'lucide-react'
@@ -70,6 +70,12 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       module: 'tareas',
     },
     {
+      name: 'Grupos',
+      href: '/dashboard/inventario/grupos',
+      icon: Package2,
+      module: 'grupos',
+    },
+    {
       name: 'Clientes',
       href: '/dashboard/clientes',
       icon: Users,
@@ -103,10 +109,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       module: 'items',
     },
     {
-      name: 'Grupos',
-      href: '/dashboard/inventario/grupos',
-      icon: Package2,
-      module: 'grupos',
+      name: 'Categorias',
+      href: '/dashboard/categorias',
+      icon: FolderTree,
+      module: 'categorias',
     },
     {
       name: 'RFID',
@@ -139,16 +145,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   const configNavigation: NavItem[] = [
     {
-      name: 'Categorias',
-      href: '/dashboard/categorias',
-      icon: FolderTree,
-      module: 'categorias',
-    },
-    {
-      name: 'Historial',
-      href: '/dashboard/historial',
-      icon: History,
-      module: 'historial',
+      name: 'Configuracion',
+      href: '/dashboard/configuracion',
+      icon: Settings,
+      module: 'configuracion',
     },
   ]
 
@@ -297,7 +297,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                   <>
                     <div className="mt-6 mb-2 px-4">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <FolderTree className="w-3 h-3" />
+                        <Settings className="w-3 h-3" />
                         Configuracion
                       </p>
                     </div>

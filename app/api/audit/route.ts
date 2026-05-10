@@ -5,7 +5,7 @@ import { canViewModule } from '@/lib/auth/check-permission'
 // GET /api/audit - List audit events
 export async function GET(request: NextRequest) {
   try {
-    const permissionCheck = await canViewModule('historial')
+    const permissionCheck = await canViewModule('configuracion')
     if (!permissionCheck.hasPermission) {
       return NextResponse.json(
         { error: permissionCheck.error },

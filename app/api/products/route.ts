@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { productSchema } from '@/lib/validations/product'
 import { canViewModule, canEditModule } from '@/lib/auth/check-permission'
 import { ZodError } from 'zod'
+import { nanoid } from 'nanoid'
 
 // GET /api/products - List all products
 export async function GET(request: NextRequest) {
@@ -32,7 +33,6 @@ export async function GET(request: NextRequest) {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
         { brand: { contains: search, mode: 'insensitive' } },
         { model: { contains: search, mode: 'insensitive' } },
       ]
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     // Clean empty strings to null
     const data = {
-      sku: validatedData.sku,
+      sku: `PRD-${nanoid(8).toUpperCase()}`,
       name: validatedData.name,
       description: validatedData.description || null,
       categoryId: validatedData.categoryId,
@@ -125,14 +125,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: 'Datos invalidos', issues: error.issues },
-        { status: 400 }
-      )
-    }
-
-    // Check for unique constraint violation
-    if (error instanceof Error && error.message.includes('Unique constraint')) {
-      return NextResponse.json(
-        { error: 'Ya existe un producto con ese SKU' },
         { status: 400 }
       )
     }

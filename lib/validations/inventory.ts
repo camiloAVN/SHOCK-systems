@@ -3,7 +3,6 @@ import { z } from 'zod'
 export const inventoryItemSchema = z.object({
   productId: z.string().min(1, 'El producto es requerido'),
   serialNumber: z.string().optional(),
-  assetTag: z.string().optional(),
   type: z.enum(['UNIT', 'CONTAINER', 'BULK']),
   status: z.enum(['IN', 'OUT', 'MAINTENANCE', 'LOST']),
   condition: z.string().optional(),

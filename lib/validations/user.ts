@@ -8,18 +8,18 @@ export const systemModules = [
   'dashboard',
   'proyectos',
   'tareas',
+  'grupos',
   'clientes',
   'cotizaciones',
   'inventario',
   'productos',
   'items',
-  'grupos',
+  'categorias',
   'rfid',
   'movimientos',
   'contratistas',
   'conceptos',
-  'categorias',
-  'historial',
+  'configuracion',
 ] as const
 
 export type SystemModule = typeof systemModules[number]
@@ -29,26 +29,26 @@ export const moduleLabels: Record<SystemModule, string> = {
   dashboard: 'Dashboard',
   proyectos: 'Proyectos',
   tareas: 'Tareas',
+  grupos: 'Grupos',
   clientes: 'Clientes',
   cotizaciones: 'Cotizaciones',
   inventario: 'Inventario',
   productos: 'Productos',
   items: 'Items',
-  grupos: 'Grupos',
+  categorias: 'Categorias',
   rfid: 'RFID',
   movimientos: 'Movimientos',
   contratistas: 'Contratistas',
   conceptos: 'Conceptos',
-  categorias: 'Categorias',
-  historial: 'Historial',
+  configuracion: 'Configuracion',
 }
 
 // Agrupacion de modulos para la UI
 export const moduleGroups = {
-  general: ['dashboard', 'proyectos', 'tareas', 'clientes', 'cotizaciones'],
-  inventario: ['inventario', 'productos', 'items', 'grupos', 'rfid', 'movimientos'],
+  general: ['dashboard', 'proyectos', 'tareas', 'grupos', 'clientes', 'cotizaciones'],
+  inventario: ['inventario', 'productos', 'items', 'categorias', 'rfid', 'movimientos'],
   terceros: ['contratistas', 'conceptos'],
-  configuracion: ['categorias', 'historial'],
+  configuracion: ['configuracion'],
 } as const
 
 export const moduleGroupLabels: Record<keyof typeof moduleGroups, string> = {

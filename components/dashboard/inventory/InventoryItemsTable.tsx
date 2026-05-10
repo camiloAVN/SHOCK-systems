@@ -58,14 +58,9 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
           {items.map((item) => (
             <tr key={item.id}>
               <td>
-                <div>
-                  <span className="font-mono text-sm font-medium">
-                    {item.assetTag || item.serialNumber || item.id.slice(-8)}
-                  </span>
-                  {item.serialNumber && item.assetTag && (
-                    <p className="text-xs text-gray-500">{item.serialNumber}</p>
-                  )}
-                </div>
+                <span className="font-mono text-sm font-medium">
+                  {item.serialNumber || item.id.slice(-8)}
+                </span>
               </td>
               <td>
                 <div className="flex items-center gap-3">

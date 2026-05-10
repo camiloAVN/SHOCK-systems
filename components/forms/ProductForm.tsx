@@ -38,7 +38,6 @@ export function ProductForm({
     resolver: zodResolver(productSchema),
     defaultValues: product
       ? {
-          sku: product.sku,
           name: product.name,
           description: product.description || '',
           categoryId: product.categoryId,
@@ -60,13 +59,6 @@ export function ProductForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Input
-          label="SKU *"
-          placeholder="AUD-001"
-          error={errors.sku?.message}
-          {...register('sku')}
-        />
-
         <Input
           label="Nombre *"
           placeholder="Micrófono Shure SM58"

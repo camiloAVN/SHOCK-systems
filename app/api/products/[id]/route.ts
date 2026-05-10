@@ -95,7 +95,6 @@ export async function PUT(
 
     // Clean empty strings to null
     const data = {
-      sku: validatedData.sku,
       name: validatedData.name,
       description: validatedData.description || null,
       categoryId: validatedData.categoryId,
@@ -130,14 +129,6 @@ export async function PUT(
     if (error instanceof ZodError) {
       return NextResponse.json(
         { error: 'Datos invalidos', issues: error.issues },
-        { status: 400 }
-      )
-    }
-
-    // Check for unique constraint violation
-    if (error instanceof Error && error.message.includes('Unique constraint')) {
-      return NextResponse.json(
-        { error: 'Ya existe un producto con ese SKU' },
         { status: 400 }
       )
     }
