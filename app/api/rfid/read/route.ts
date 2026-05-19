@@ -4,7 +4,7 @@ import { processRfidReads } from '@/lib/rfid/processor'
 import { ZodError } from 'zod'
 
 // Environment variable for RFID API key
-const RFID_API_KEY = process.env.RFID_API_KEY || 'rfid-secret-key'
+const RFID_API_KEY = process.env.RFID_API_KEY
 
 // POST /api/rfid/read - External endpoint for RFID readers
 export async function POST(request: NextRequest) {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const validatedData = rfidReadSchema.parse(body)
 
     // Validate API key
-    if (validatedData.apiKey !== RFID_API_KEY) {
+    if (!RFID_API_KEY || validatedData.apiKey !== RFID_API_KEY) {
       return NextResponse.json(
         { error: 'API key inválida' },
         { status: 401 }

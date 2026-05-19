@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   const clientIP = getClientIP(request)
 
   // Check rate limit before processing
-  const rateLimitResult = checkRateLimit(
+  const rateLimitResult = await checkRateLimit(
     `login:${clientIP}`,
     RATE_LIMIT_CONFIGS.login
   )
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Reset rate limit on successful login
-    resetRateLimit(`login:${clientIP}`)
+    await resetRateLimit(`login:${clientIP}`)
 
     console.info(`[AUTH] Successful login for user: ${email} from IP: ${clientIP}`)
 

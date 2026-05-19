@@ -23,7 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const email = (credentials.email as string).toLowerCase()
 
-        const rateLimitResult = checkRateLimit(
+        const rateLimitResult = await checkRateLimit(
           `auth:${email}`,
           RATE_LIMIT_CONFIGS.login
         )
@@ -70,7 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null
         }
 
-        resetRateLimit(`auth:${email}`)
+        await resetRateLimit(`auth:${email}`)
         console.info(`[AUTH] User authenticated: ${email}`)
 
         return {

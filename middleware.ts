@@ -5,7 +5,7 @@ import { NextResponse } from "next/server"
 // Instancia edge-compatible: solo usa authConfig (sin bcrypt ni Prisma)
 const { auth } = NextAuth(authConfig)
 
-const PUBLIC_API_PREFIXES = ['/api/auth', '/api/contact']
+const PUBLIC_API_PREFIXES = ['/api/auth', '/api/contact', '/api/health']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl
