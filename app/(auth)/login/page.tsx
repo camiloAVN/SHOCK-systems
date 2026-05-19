@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 
 export const metadata: Metadata = {
   title: 'Iniciar Sesión',
-  description: 'Accede al panel de administración de XENITH',
+  description: 'Accede al panel de administración de SHOCK Systems',
 }
 
 export default function LoginPage() {

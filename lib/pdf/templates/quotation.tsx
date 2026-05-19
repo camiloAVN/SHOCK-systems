@@ -340,7 +340,7 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings, logoSrc
           <View>
             {logoSrc
               ? <Image src={logoSrc} style={st.logoImageLight} />
-              : <Text style={st.companyNameLight}>XENITH</Text>}
+              : <Text style={st.companyNameLight}>SHOCK</Text>}
             {companyInfo ? <Text style={st.companyInfoLight}>{companyInfo}</Text> : null}
           </View>
           <View style={st.quotationInfoLight}>
@@ -356,7 +356,7 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings, logoSrc
         <View style={st.headerMinimalista}>
           {logoSrc
             ? <Image src={logoSrc} style={st.logoImage} />
-            : <Text style={st.companyNameDark}>XENITH</Text>}
+            : <Text style={st.companyNameDark}>SHOCK</Text>}
           {companyInfo ? <Text style={st.companyInfoDark}>{companyInfo}</Text> : null}
           <Text style={{ ...st.quotationNumber, marginTop: 8 }}>{quotation.quotationNumber}</Text>
           <Text style={st.quotationMeta}>{quotationMeta}</Text>
@@ -370,7 +370,7 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings, logoSrc
         <View>
           {logoSrc
             ? <Image src={logoSrc} style={st.logoImage} />
-            : <Text style={st.companyNameDark}>XENITH</Text>}
+            : <Text style={st.companyNameDark}>SHOCK</Text>}
           {companyInfo ? <Text style={st.companyInfoDark}>{companyInfo}</Text> : null}
         </View>
         <View style={st.quotationInfo}>
@@ -494,7 +494,7 @@ export function QuotationPDFDocument({ quotation, settings: rawSettings, logoSrc
         )}
 
         <Text style={st.footer}>
-          Generado con XENITH · Sistema de Gestión de Proyectos
+          Generado con SHOCK · Sistema de Gestión de Proyectos
         </Text>
       </Page>
     </Document>

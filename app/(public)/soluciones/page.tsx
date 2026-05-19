@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Soluciones - XENITH',
+  title: 'Soluciones - SHOCK',
   description: 'Descubre nuestras soluciones en ingeniería robótica, desarrollo de software, IoT, cloud computing y más.',
 }
 

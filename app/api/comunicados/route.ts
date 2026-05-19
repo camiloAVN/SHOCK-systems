@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     )
 
     const { data, error } = await resend.emails.send({
-      from: 'XENITH <onboarding@resend.dev>',
+      from: 'SHOCK Systems <onboarding@resend.dev>',
       to: [session.user.email!],
       bcc: emails,
       subject: validatedData.subject,

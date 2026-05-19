@@ -13,8 +13,8 @@ import {
 } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Dashboard - XENITH',
-  description: 'Panel de administración de XENITH',
+  title: 'Dashboard - SHOCK',
+  description: 'Panel de administración de SHOCK Systems',
 }
 
 export default function DashboardPage() {

@@ -4,7 +4,7 @@ import { Metadata } from 'next'
 import { Mail, Phone, MapPin, Clock } from 'lucide-react'
 
 export const metadata: Metadata = {
-  title: 'Contacto - XENITH',
+  title: 'Contacto - SHOCK',
   description: 'Contáctanos para discutir tu proyecto. Estamos listos para ayudarte a transformar tus ideas en realidad.',
 }
 

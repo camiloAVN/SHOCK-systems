@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     )
 
     const { error } = await resend.emails.send({
-      from: 'XENITH Contacto <onboarding@resend.dev>',
+      from: 'SHOCK Systems Contacto <onboarding@resend.dev>',
       to: [CONTACT_DESTINATION],
       replyTo: validatedData.email,
       subject: `Nuevo contacto: ${validatedData.subject}`,

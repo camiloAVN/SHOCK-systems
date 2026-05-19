@@ -47,9 +47,6 @@ export async function PUT(request: NextRequest) {
   if (!session?.user) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
   }
-  if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-  }
 
   try {
     const body = await request.json()

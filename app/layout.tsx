@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "XENITH - Ingeniería Robótica y Desarrollo de Software",
-    template: "%s | XENITH",
+    default: "SHOCK Systems - Control de Inventario y Alquiler de Equipos",
+    template: "%s | SHOCK",
   },
-  description: "Soluciones innovadoras en ingeniería robótica y desarrollo de software. Transformamos ideas en realidad tecnológica.",
+  description: "Sistema de control de inventario, CRM y alquiler de equipos audiovisuales con integración RFID.",
 };
 
 export default function RootLayout({

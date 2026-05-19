@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'xenith-auth-storage',
+      name: 'shock-auth-storage',
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

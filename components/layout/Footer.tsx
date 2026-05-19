@@ -88,7 +88,7 @@ export function Footer() {
         {/* Bottom Section */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-400 text-sm">
-            © {currentYear} XENITH. Todos los derechos reservados.
+            © {currentYear} SHOCK Systems. Todos los derechos reservados.
           </p>
 
           {/* Social Links */}

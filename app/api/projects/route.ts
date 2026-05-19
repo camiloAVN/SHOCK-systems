@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
                 })
               )
               await resend.emails.send({
-                from: 'XENITH <onboarding@resend.dev>',
+                from: 'SHOCK Systems <onboarding@resend.dev>',
                 to: [user.email],
                 subject: `Tareas asignadas - ${validatedData.title}`,
                 html,

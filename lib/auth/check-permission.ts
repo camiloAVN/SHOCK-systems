@@ -1,6 +1,6 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
-import { SUPERADMIN_EMAIL, SystemModule } from '@/lib/validations/user'
+import { SystemModule } from '@/lib/validations/user'
 
 interface PermissionCheck {
   hasPermission: boolean
@@ -20,7 +20,7 @@ export async function canViewModule(module: SystemModule): Promise<PermissionChe
   }
 
   // Superadmin tiene todos los permisos
-  if (session.user.email === SUPERADMIN_EMAIL) {
+  if (session.user.role === 'SUPERADMIN') {
     return { hasPermission: true, userId: session.user.id }
   }
 
@@ -52,7 +52,7 @@ export async function canEditModule(module: SystemModule): Promise<PermissionChe
   }
 
   // Superadmin tiene todos los permisos
-  if (session.user.email === SUPERADMIN_EMAIL) {
+  if (session.user.role === 'SUPERADMIN') {
     return { hasPermission: true, userId: session.user.id }
   }
 
@@ -91,5 +91,5 @@ export async function checkAuth(): Promise<PermissionCheck> {
  */
 export async function isSuperAdmin(): Promise<boolean> {
   const session = await auth()
-  return session?.user?.email === SUPERADMIN_EMAIL
+  return session?.user?.role === 'SUPERADMIN'
 }

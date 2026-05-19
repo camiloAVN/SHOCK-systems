@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { SystemModule, SUPERADMIN_EMAIL } from '@/lib/validations/user'
+import { SystemModule } from '@/lib/validations/user'
 
 interface Permission {
   module: string
@@ -26,7 +26,7 @@ export function usePermissions(): UsePermissionsReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
 
-  const isSuperAdmin = session?.user?.email === SUPERADMIN_EMAIL
+  const isSuperAdmin = session?.user?.role === 'SUPERADMIN'
   const isAdmin = isSuperAdmin || userRole === 'ADMIN'
 
   const fetchPermissions = useCallback(async () => {

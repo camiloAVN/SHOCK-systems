@@ -42,7 +42,7 @@ export default function ComunicadosPage() {
     }
 
     // Superadmin always has access
-    if (session.user.email === SUPERADMIN_EMAIL) {
+    if (session.user.role === 'SUPERADMIN') {
       setHasAccess(true)
       fetchUsers()
       return
@@ -52,7 +52,7 @@ export default function ComunicadosPage() {
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
-        if (data.role === 'ADMIN') {
+        if (data.role === 'ADMIN' || data.role === 'SUPERADMIN') {
           setHasAccess(true)
           fetchUsers()
         } else {

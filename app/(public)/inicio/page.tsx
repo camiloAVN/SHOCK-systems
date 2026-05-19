@@ -3,7 +3,7 @@ import { Hero } from '@/components/public/Hero'
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'XENITH - Ingeniería Robótica y Desarrollo de Software',
+  title: 'SHOCK Systems - Control de Inventario y Alquiler de Equipos',
   description: 'Soluciones innovadoras en ingeniería robótica y desarrollo de software. Transformamos ideas en realidad tecnológica.',
 }
 

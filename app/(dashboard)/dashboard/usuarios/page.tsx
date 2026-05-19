@@ -68,7 +68,7 @@ export default function UsersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Check if current user is superadmin
-  const isSuperAdmin = session?.user?.email === SUPERADMIN_EMAIL
+  const isSuperAdmin = session?.user?.role === 'SUPERADMIN'
   const [hasAccess, setHasAccess] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function UsersPage() {
     }
 
     // Superadmin always has access
-    if (session.user.email === SUPERADMIN_EMAIL) {
+    if (session.user.role === 'SUPERADMIN') {
       setHasAccess(true)
       fetchUsers()
       return
@@ -90,7 +90,7 @@ export default function UsersPage() {
     fetch('/api/profile')
       .then((res) => res.json())
       .then((data) => {
-        if (data.role === 'ADMIN') {
+        if (data.role === 'ADMIN' || data.role === 'SUPERADMIN') {
           setHasAccess(true)
           fetchUsers()
         } else {

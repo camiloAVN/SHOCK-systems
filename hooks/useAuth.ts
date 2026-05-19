@@ -37,7 +37,7 @@ export function useAuth() {
 
     // Clear persisted auth data from localStorage
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('xenith-auth-storage')
+      localStorage.removeItem('shock-auth-storage')
     }
 
     // Sign out and let NextAuth handle the redirect

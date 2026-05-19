@@ -26,6 +26,23 @@ async function main() {
 
   console.log('Created superadmin:', superAdmin.email)
 
+  // Create second superadmin
+  const superAdmin2 = await prisma.user.upsert({
+    where: { email: 'nelsonshock@gmail.com' },
+    update: {
+      password: hashedPassword,
+      role: 'SUPERADMIN',
+    },
+    create: {
+      email: 'nelsonshock@gmail.com',
+      name: 'Nelson',
+      password: hashedPassword,
+      role: 'SUPERADMIN',
+    },
+  })
+
+  console.log('Created superadmin:', superAdmin2.email)
+
   // Find old admin user
   const oldAdmin = await prisma.user.findUnique({
     where: { email: 'admin@xenith.com' },
@@ -70,70 +87,84 @@ async function main() {
 
   console.log('✅ Created demo client:', demoClient.name)
 
-  // Create demo project
-  const demoProject = await prisma.project.create({
-    data: {
-      title: 'Sistema de Automatización Industrial',
-      description: 'Desarrollo de sistema de automatización para línea de producción',
-      status: 'IN_PROGRESS',
-      priority: 'HIGH',
-      clientId: demoClient.id,
-      assignedTo: superAdmin.id,
-      budget: 150000,
-      startDate: new Date('2026-01-01'),
-      endDate: new Date('2026-06-30'),
-      tags: ['automatización', 'robótica', 'IoT'],
-      notes: 'Proyecto prioritario para Q1 2026',
-    },
+  // Create demo project (skip if already exists)
+  let demoProject = await prisma.project.findFirst({
+    where: { title: 'Sistema de Automatización Industrial' },
   })
 
-  console.log('✅ Created demo project:', demoProject.title)
-
-  // Create demo quotation
-  const demoQuotation = await prisma.quotation.create({
-    data: {
-      quotationNumber: 'QT-2026-0001',
-      title: 'Cotización Sistema de Automatización',
-      description: 'Cotización para desarrollo de sistema de automatización industrial',
-      clientId: demoClient.id,
-      projectId: demoProject.id,
-      createdBy: superAdmin.id,
-      status: 'SENT',
-      validUntil: new Date('2026-02-15'),
-      subtotal: 150000,
-      tax: 24000,
-      discount: 0,
-      total: 174000,
-      terms: 'Pago: 50% anticipo, 50% contra entrega. Garantía de 12 meses.',
-      items: {
-        create: [
-          {
-            description: 'Desarrollo de software de control',
-            quantity: 1,
-            unitPrice: 80000,
-            total: 80000,
-            order: 1,
-          },
-          {
-            description: 'Integración de sensores IoT',
-            quantity: 10,
-            unitPrice: 3000,
-            total: 30000,
-            order: 2,
-          },
-          {
-            description: 'Sistema de monitoreo en tiempo real',
-            quantity: 1,
-            unitPrice: 40000,
-            total: 40000,
-            order: 3,
-          },
-        ],
+  if (!demoProject) {
+    demoProject = await prisma.project.create({
+      data: {
+        title: 'Sistema de Automatización Industrial',
+        description: 'Desarrollo de sistema de automatización para línea de producción',
+        status: 'IN_PROGRESS',
+        priority: 'HIGH',
+        clientId: demoClient.id,
+        assignedTo: superAdmin.id,
+        budget: 150000,
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-06-30'),
+        tags: ['automatización', 'robótica', 'IoT'],
+        notes: 'Proyecto prioritario para Q1 2026',
       },
-    },
+    })
+    console.log('✅ Created demo project:', demoProject.title)
+  } else {
+    console.log('⏭️  Demo project already exists, skipping')
+  }
+
+  // Create demo quotation (skip if already exists)
+  const existingQuotation = await prisma.quotation.findUnique({
+    where: { quotationNumber: 'QT-2026-0001' },
   })
 
-  console.log('✅ Created demo quotation:', demoQuotation.quotationNumber)
+  if (!existingQuotation) {
+    const demoQuotation = await prisma.quotation.create({
+      data: {
+        quotationNumber: 'QT-2026-0001',
+        title: 'Cotización Sistema de Automatización',
+        description: 'Cotización para desarrollo de sistema de automatización industrial',
+        clientId: demoClient.id,
+        projectId: demoProject.id,
+        createdBy: superAdmin.id,
+        status: 'SENT',
+        validUntil: new Date('2026-02-15'),
+        subtotal: 150000,
+        tax: 24000,
+        discount: 0,
+        total: 174000,
+        terms: 'Pago: 50% anticipo, 50% contra entrega. Garantía de 12 meses.',
+        items: {
+          create: [
+            {
+              description: 'Desarrollo de software de control',
+              quantity: 1,
+              unitPrice: 80000,
+              total: 80000,
+              order: 1,
+            },
+            {
+              description: 'Integración de sensores IoT',
+              quantity: 10,
+              unitPrice: 3000,
+              total: 30000,
+              order: 2,
+            },
+            {
+              description: 'Sistema de monitoreo en tiempo real',
+              quantity: 1,
+              unitPrice: 40000,
+              total: 40000,
+              order: 3,
+            },
+          ],
+        },
+      },
+    })
+    console.log('✅ Created demo quotation:', demoQuotation.quotationNumber)
+  } else {
+    console.log('⏭️  Demo quotation already exists, skipping')
+  }
 
   console.log('')
   console.log('Seeding completed!')
