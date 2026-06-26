@@ -349,6 +349,14 @@ enum MovementType {
   TRANSFER
 }
 
+enum LocationType {
+  SECTOR    // Sector (letras)
+  CUADRANTE // Cuadrante (números)
+  RACK      // Rack / Estante (letras)
+  NIVEL     // Nivel (números)
+  POSICION  // Posición (números)
+}
+
 // =============================================
 // INVENTORY SYSTEM MODELS
 // =============================================
@@ -470,7 +478,8 @@ model InventoryItem {
   type         InventoryType   @default(UNIT)
   status       InventoryStatus @default(IN)
   condition    String?         // Estado físico: Excelente, Bueno, Regular, Malo
-  location     String?         // Ubicación actual
+  location     String?         // Snapshot del fullPath de la ubicación (compatibilidad/movimientos)
+  locationId   String?         // Ubicación estructurada asociada
   containerId  String?         // ID del contenedor si está dentro de uno
   purchaseDate DateTime?
   purchasePrice Decimal?       @db.Decimal(10, 2)
@@ -483,6 +492,7 @@ model InventoryItem {
   product        Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
   container      InventoryItem?       @relation("ContainerContents", fields: [containerId], references: [id])
   contents       InventoryItem[]      @relation("ContainerContents")
+  locationRef    Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
   rfidTag        RfidTag?
   movements      InventoryMovement[]
   quotationItems QuotationItem[]
@@ -491,6 +501,7 @@ model InventoryItem {
   @@index([productId])
   @@index([status])
   @@index([containerId])
+  @@index([locationId])
   @@map("inventory_items")
 }
 
@@ -594,6 +605,32 @@ model InventoryMovement {
   @@index([performedBy])
   @@index([createdAt])
   @@map("inventory_movements")
+}
+
+// =============================================
+// LOCATIONS (UBICACIONES JERÁRQUICAS)
+// =============================================
+
+// Location - Árbol de ubicaciones físicas (Sector > Cuadrante > Rack > Nivel > Posición)
+model Location {
+  id          String       @id @default(cuid())
+  type        LocationType
+  code        String       // Letra o número de este nodo (ej. "A", "1", "B")
+  description String?      @db.Text
+  parentId    String?
+  fullPath    String       // Ruta legible precalculada (ej. "A · 1 · B · 2 · 3")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  parent   Location?       @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Location[]      @relation("LocationHierarchy")
+  items    InventoryItem[]
+
+  @@unique([parentId, code])
+  @@index([parentId])
+  @@index([type])
+  @@map("locations")
 }
 
 // =============================================

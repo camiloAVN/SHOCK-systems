@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useInventory } from '@/hooks/useInventory'
 import { useProducts } from '@/hooks/useProducts'
+import { useLocations } from '@/hooks/useLocations'
 import { InventoryItemForm } from '@/components/forms/InventoryItemForm'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -16,6 +17,7 @@ export default function EditInventoryItemPage() {
   const router = useRouter()
   const { currentItem: item, items, isLoading, fetchItem, fetchItems, editItem } = useInventory()
   const { products, fetchProducts } = useProducts()
+  const { flatList: locations, fetchTree } = useLocations()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const itemId = params.id as string
@@ -23,7 +25,8 @@ export default function EditInventoryItemPage() {
   useEffect(() => {
     fetchProducts()
     fetchItems({ type: 'CONTAINER' })
-  }, [fetchProducts, fetchItems])
+    fetchTree({ silent: true })
+  }, [fetchProducts, fetchItems, fetchTree])
 
   useEffect(() => {
     if (itemId) {
@@ -97,6 +100,7 @@ export default function EditInventoryItemPage() {
             item={item}
             products={products}
             containers={containers}
+            locations={locations}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}

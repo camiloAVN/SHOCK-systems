@@ -6,7 +6,7 @@ export const inventoryItemSchema = z.object({
   type: z.enum(['UNIT', 'CONTAINER', 'BULK']),
   status: z.enum(['IN', 'OUT', 'MAINTENANCE', 'LOST']),
   condition: z.string().optional(),
-  location: z.string().optional(),
+  locationId: z.string().optional().nullable(),
   containerId: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
   purchasePrice: z.number().min(0, 'El precio debe ser positivo').optional().nullable(),
@@ -33,7 +33,14 @@ export type InventoryItem = {
   status: 'IN' | 'OUT' | 'MAINTENANCE' | 'LOST'
   condition: string | null
   location: string | null
+  locationId: string | null
   containerId: string | null
+  locationRef?: {
+    id: string
+    type: 'SECTOR' | 'CUADRANTE' | 'RACK' | 'NIVEL' | 'POSICION'
+    code: string
+    fullPath: string
+  } | null
   purchaseDate: Date | null
   purchasePrice: number | null
   warrantyExpiry: Date | null

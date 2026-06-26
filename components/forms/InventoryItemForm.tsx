@@ -5,16 +5,18 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { inventoryItemSchema, InventoryItemFormData, InventoryItem } from '@/lib/validations/inventory'
 import { Product } from '@/lib/validations/product'
+import { Location, locationTypeLabels } from '@/lib/validations/location'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Button } from '@/components/ui/Button'
-import { Search, X, ChevronDown } from 'lucide-react'
+import { Search, X, ChevronDown, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 
 interface InventoryItemFormProps {
   item?: InventoryItem | null
   products: Product[]
   containers?: InventoryItem[]
+  locations?: Location[]
   onSubmit: (data: InventoryItemFormData) => Promise<void>
   onCancel: () => void
   isSubmitting?: boolean
@@ -24,6 +26,7 @@ export function InventoryItemForm({
   item,
   products,
   containers = [],
+  locations = [],
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -43,7 +46,7 @@ export function InventoryItemForm({
           type: item.type,
           status: item.status,
           condition: item.condition || '',
-          location: item.location || '',
+          locationId: item.locationId || '',
           containerId: item.containerId || '',
           purchaseDate: item.purchaseDate ? new Date(item.purchaseDate).toISOString().split('T')[0] : '',
           purchasePrice: item.purchasePrice as number | undefined,
@@ -58,6 +61,23 @@ export function InventoryItemForm({
 
   const selectedType = watch('type')
   const productIdValue = watch('productId')
+  const locationIdValue = watch('locationId')
+
+  // ── Location picker state ───────────────────────────────────────────────────
+  const [locationQuery, setLocationQuery] = useState('')
+  const [locationDropdownOpen, setLocationDropdownOpen] = useState(false)
+  const locationRef = useRef<HTMLDivElement>(null)
+  const selectedLocation = useMemo(
+    () => locations.find((l) => l.id === locationIdValue) ?? null,
+    [locations, locationIdValue]
+  )
+
+  const filteredLocations = useMemo(() => {
+    const q = locationQuery.toLowerCase()
+    return locations
+      .filter((l) => !q || l.fullPath.toLowerCase().includes(q))
+      .slice(0, 30)
+  }, [locations, locationQuery])
 
   // ── Product search state ────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
@@ -73,6 +93,9 @@ export function InventoryItemForm({
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
+      }
+      if (locationRef.current && !locationRef.current.contains(e.target as Node)) {
+        setLocationDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -281,12 +304,91 @@ export function InventoryItemForm({
           </select>
         </div>
 
-        <Input
-          label="Ubicación"
-          placeholder="Bodega A - Estante 3"
-          error={errors.location?.message}
-          {...register('location')}
-        />
+        {/* ── Ubicación ──────────────────────────────────────────────────────── */}
+        <div>
+          <label className="block text-sm font-medium text-gray-200 mb-2">
+            Ubicación
+          </label>
+
+          {selectedLocation ? (
+            <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-gray-800 border border-emerald-500/40">
+              <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">
+                  {selectedLocation.fullPath}
+                </p>
+                <p className="text-xs text-gray-400 truncate">
+                  {locationTypeLabels[selectedLocation.type]}
+                  {selectedLocation.description ? ` · ${selectedLocation.description}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setValue('locationId', '', { shouldValidate: true })}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div ref={locationRef} className="relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={locationQuery}
+                  onChange={(e) => {
+                    setLocationQuery(e.target.value)
+                    setLocationDropdownOpen(true)
+                  }}
+                  onFocus={() => setLocationDropdownOpen(true)}
+                  placeholder={
+                    locations.length === 0
+                      ? 'No hay ubicaciones creadas'
+                      : 'Buscar ubicación...'
+                  }
+                  disabled={locations.length === 0}
+                  className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm disabled:opacity-60"
+                />
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {locationDropdownOpen && locations.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-lg bg-gray-900 border border-gray-700 shadow-xl">
+                  {filteredLocations.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-gray-500">Sin resultados</p>
+                  ) : (
+                    filteredLocations.map((loc) => (
+                      <button
+                        key={loc.id}
+                        type="button"
+                        onClick={() => {
+                          setValue('locationId', loc.id, { shouldValidate: true })
+                          setLocationDropdownOpen(false)
+                          setLocationQuery('')
+                        }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-800 transition-colors border-b border-gray-800 last:border-0"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-100 truncate">
+                            {loc.fullPath}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {locationTypeLabels[loc.type]}
+                            {loc.description ? ` · ${loc.description}` : ''}
+                          </p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <input type="hidden" {...register('locationId')} value={locationIdValue || ''} />
+        </div>
 
         {selectedType === 'UNIT' && containers.length > 0 && (
           <div>

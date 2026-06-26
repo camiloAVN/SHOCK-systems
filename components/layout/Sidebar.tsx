@@ -18,6 +18,7 @@ import {
   Radio,
   ArrowRightLeft,
   FolderTree,
+  MapPin,
   Package2,
   UsersRound,
   Briefcase,
@@ -113,6 +114,12 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       href: '/dashboard/categorias',
       icon: FolderTree,
       module: 'categorias',
+    },
+    {
+      name: 'Ubicaciones',
+      href: '/dashboard/inventario/ubicaciones',
+      icon: MapPin,
+      module: 'ubicaciones',
     },
     {
       name: 'RFID',

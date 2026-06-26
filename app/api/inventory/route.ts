@@ -82,6 +82,9 @@ export async function GET(request: NextRequest) {
             serialNumber: true,
           },
         },
+        locationRef: {
+          select: { id: true, type: true, code: true, fullPath: true },
+        },
         rfidTag: {
           select: {
             id: true,
@@ -136,6 +139,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Resolver ubicación estructurada (snapshot del fullPath)
+    let locationId: string | null = null
+    let locationPath: string | null = null
+    if (validatedData.locationId) {
+      const loc = await prisma.location.findUnique({
+        where: { id: validatedData.locationId },
+        select: { id: true, fullPath: true },
+      })
+      if (!loc) {
+        return NextResponse.json(
+          { error: 'Ubicación no encontrada' },
+          { status: 404 }
+        )
+      }
+      locationId = loc.id
+      locationPath = loc.fullPath
+    }
+
     // Clean data
     const data = {
       productId: validatedData.productId,
@@ -143,7 +164,8 @@ export async function POST(request: NextRequest) {
       type: validatedData.type,
       status: validatedData.status,
       condition: validatedData.condition || null,
-      location: validatedData.location || null,
+      location: locationPath,
+      locationId,
       containerId: validatedData.containerId || null,
       purchaseDate: validatedData.purchaseDate ? new Date(validatedData.purchaseDate) : null,
       purchasePrice: validatedData.purchasePrice ?? null,
@@ -170,6 +192,9 @@ export async function POST(request: NextRequest) {
               },
             },
           },
+        },
+        locationRef: {
+          select: { id: true, type: true, code: true, fullPath: true },
         },
         _count: {
           select: {

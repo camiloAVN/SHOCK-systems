@@ -47,6 +47,9 @@ export async function GET(
             serialNumber: true,
           },
         },
+        locationRef: {
+          select: { id: true, type: true, code: true, fullPath: true },
+        },
         contents: {
           select: {
             id: true,
@@ -140,6 +143,24 @@ export async function PUT(
       )
     }
 
+    // Resolver ubicación estructurada (snapshot del fullPath)
+    let locationId: string | null = null
+    let locationPath: string | null = null
+    if (validatedData.locationId) {
+      const loc = await prisma.location.findUnique({
+        where: { id: validatedData.locationId },
+        select: { id: true, fullPath: true },
+      })
+      if (!loc) {
+        return NextResponse.json(
+          { error: 'Ubicación no encontrada' },
+          { status: 404 }
+        )
+      }
+      locationId = loc.id
+      locationPath = loc.fullPath
+    }
+
     // Clean data
     const data = {
       productId: validatedData.productId,
@@ -147,7 +168,8 @@ export async function PUT(
       type: validatedData.type,
       status: validatedData.status,
       condition: validatedData.condition || null,
-      location: validatedData.location || null,
+      location: locationPath,
+      locationId,
       containerId: validatedData.containerId || null,
       purchaseDate: validatedData.purchaseDate ? new Date(validatedData.purchaseDate) : null,
       purchasePrice: validatedData.purchasePrice ?? null,
@@ -175,6 +197,9 @@ export async function PUT(
               },
             },
           },
+        },
+        locationRef: {
+          select: { id: true, type: true, code: true, fullPath: true },
         },
         _count: {
           select: {

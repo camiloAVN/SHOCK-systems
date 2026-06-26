@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useInventory } from '@/hooks/useInventory'
 import { useProducts } from '@/hooks/useProducts'
+import { useLocations } from '@/hooks/useLocations'
 import { InventoryItemForm } from '@/components/forms/InventoryItemForm'
 import { Card } from '@/components/ui/Card'
 import { InventoryItemFormData } from '@/lib/validations/inventory'
@@ -12,12 +13,14 @@ export default function NewInventoryItemPage() {
   const router = useRouter()
   const { createItem, items, fetchItems } = useInventory()
   const { products, fetchProducts } = useProducts()
+  const { flatList: locations, fetchTree } = useLocations()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchProducts()
     fetchItems({ type: 'CONTAINER' })
-  }, [fetchProducts, fetchItems])
+    fetchTree({ silent: true })
+  }, [fetchProducts, fetchItems, fetchTree])
 
   const containers = items.filter((item) => item.type === 'CONTAINER')
 
@@ -51,6 +54,7 @@ export default function NewInventoryItemPage() {
           <InventoryItemForm
             products={products}
             containers={containers}
+            locations={locations}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}

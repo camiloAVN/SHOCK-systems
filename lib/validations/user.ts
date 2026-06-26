@@ -15,6 +15,7 @@ export const systemModules = [
   'productos',
   'items',
   'categorias',
+  'ubicaciones',
   'rfid',
   'movimientos',
   'contratistas',
@@ -36,6 +37,7 @@ export const moduleLabels: Record<SystemModule, string> = {
   productos: 'Productos',
   items: 'Items',
   categorias: 'Categorias',
+  ubicaciones: 'Ubicaciones',
   rfid: 'RFID',
   movimientos: 'Movimientos',
   contratistas: 'Contratistas',
@@ -46,7 +48,7 @@ export const moduleLabels: Record<SystemModule, string> = {
 // Agrupacion de modulos para la UI
 export const moduleGroups = {
   general: ['dashboard', 'proyectos', 'tareas', 'grupos', 'clientes', 'cotizaciones'],
-  inventario: ['inventario', 'productos', 'items', 'categorias', 'rfid', 'movimientos'],
+  inventario: ['inventario', 'productos', 'items', 'categorias', 'ubicaciones', 'rfid', 'movimientos'],
   terceros: ['contratistas', 'conceptos'],
   configuracion: ['configuracion'],
 } as const
