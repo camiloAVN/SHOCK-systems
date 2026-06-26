@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useInventory } from '@/hooks/useInventory'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Table } from '@/components/ui/Table'
+import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal'
 import {
   ArrowLeft,
   Edit,
@@ -77,6 +78,7 @@ export default function InventoryItemDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { currentItem: item, isLoading, fetchItem, checkIn, checkOut } = useInventory()
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
   const itemId = params.id as string
 
@@ -427,6 +429,29 @@ export default function InventoryItemDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Product Image */}
+          {item.product?.imageUrl && (
+            <Card>
+              <Card.Content className="p-4">
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(true)}
+                  className="block w-full cursor-zoom-in group"
+                  title="Click para ampliar"
+                >
+                  <img
+                    src={item.product.imageUrl}
+                    alt={item.product.name}
+                    className="w-full h-48 object-cover rounded-lg transition-opacity group-hover:opacity-90"
+                  />
+                </button>
+                <p className="text-xs text-gray-500 text-center mt-2">
+                  {item.product.name}
+                </p>
+              </Card.Content>
+            </Card>
+          )}
+
           {/* RFID Tag */}
           <Card>
             <Card.Header>
@@ -526,6 +551,13 @@ export default function InventoryItemDetailPage() {
           </Card>
         </div>
       </div>
+
+      <ImagePreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        imageUrl={item.product?.imageUrl || null}
+        alt={item.product?.name || 'Producto'}
+      />
     </div>
   )
 }
