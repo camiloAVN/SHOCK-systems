@@ -163,7 +163,7 @@ export default function ComunicadosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Comunicados</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Comunicados</h1>
         <p className="text-gray-400 mt-1">
           Envia correos a los usuarios del sistema
         </p>
@@ -183,7 +183,7 @@ export default function ComunicadosPage() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-cards">
                 <thead>
                   <tr>
                     <th className="w-12">

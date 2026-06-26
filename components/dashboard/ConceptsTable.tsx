@@ -40,7 +40,7 @@ export function ConceptsTable({ concepts, onDelete }: ConceptsTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Concepto</th>

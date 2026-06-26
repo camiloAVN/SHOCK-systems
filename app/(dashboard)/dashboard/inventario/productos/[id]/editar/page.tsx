@@ -81,7 +81,7 @@ export default function EditProductPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Editar Producto</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Editar Producto</h1>
           <p className="text-gray-400 mt-1">
             {product.name} ({product.sku})
           </p>

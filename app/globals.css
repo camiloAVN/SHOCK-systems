@@ -149,3 +149,62 @@ body {
   background: rgba(245, 146, 10, 0.3);
   color: rgb(var(--color-text));
 }
+
+/* Hide scrollbar (used in breadcrumbs / horizontal scrollers) */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Responsive tables: turn each row into a card on mobile.
+   Add className="table-cards" to a <table> (via the Table component). */
+@media (max-width: 767px) {
+  table.table-cards,
+  table.table-cards tbody {
+    display: block;
+    width: 100%;
+  }
+  table.table-cards thead {
+    display: none;
+  }
+  table.table-cards tr {
+    display: block;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    background: rgba(17, 24, 39, 0.5);
+    padding: 0.625rem 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+  table.table-cards td {
+    display: block;
+    padding: 0.2rem 0;
+    border: none !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  table.table-cards td:first-child {
+    font-weight: 600;
+    color: rgb(var(--color-text));
+  }
+  /* Action button rows align left and wrap inside the card */
+  table.table-cards td:last-child > .flex {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-top: 0.35rem;
+  }
+  /* Optional per-cell label via data-label */
+  table.table-cards td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: rgb(var(--color-text-muted));
+    margin-bottom: 0.1rem;
+  }
+}

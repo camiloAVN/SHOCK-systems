@@ -35,7 +35,7 @@ export function QuotationsTable({ quotations, onDelete, onDownloadPdf }: Quotati
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Número</th>

@@ -44,8 +44,113 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
     )
   }
 
+  const actions = (item: InventoryItem) => (
+    <>
+      {item.status !== 'IN' && onCheckIn && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
+          onClick={() => onCheckIn(item.id)}
+          title="Check In"
+        >
+          <ArrowDownToLine className="w-4 h-4" />
+        </Button>
+      )}
+      {item.status === 'IN' && onCheckOut && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+          onClick={() => onCheckOut(item.id)}
+          title="Check Out"
+        >
+          <ArrowUpFromLine className="w-4 h-4" />
+        </Button>
+      )}
+      {item.locationId && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
+          onClick={() => setView360LocationId(item.locationId)}
+          title="Ver ubicación en 360°"
+        >
+          <MapPin className="w-4 h-4" />
+        </Button>
+      )}
+      <Link href={`/dashboard/inventario/items/${item.id}`}>
+        <Button variant="ghost" size="sm" title="Ver detalles">
+          <Eye className="w-4 h-4" />
+        </Button>
+      </Link>
+      <Link href={`/dashboard/inventario/items/${item.id}/editar`}>
+        <Button variant="ghost" size="sm" title="Editar">
+          <Edit className="w-4 h-4" />
+        </Button>
+      </Link>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+        onClick={() => {
+          if (confirm('¿Estás seguro de que deseas eliminar este item?')) {
+            onDelete(item.id)
+          }
+        }}
+        title="Eliminar"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </>
+  )
+
   return (
-    <div className="overflow-x-auto">
+    <>
+      {/* Mobile: tarjetas */}
+      <div className="md:hidden space-y-3">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
+            <div className="flex items-start gap-3">
+              <ProductThumbnail
+                imageUrl={item.product?.imageUrl}
+                productName={item.product?.name || 'Producto'}
+                size="md"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-100 truncate">{item.product?.name || 'N/A'}</p>
+                <p className="font-mono text-xs text-gray-500 truncate">
+                  {item.serialNumber || item.id.slice(-8)}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[item.status].className}`}>
+                    {statusConfig[item.status].label}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeConfig[item.type].className}`}>
+                    {typeConfig[item.type].label}
+                  </span>
+                  {item.rfidTag && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                      RFID
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            {item.location && (
+              <p className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-gray-500" /> {item.location}
+              </p>
+            )}
+            <div className="mt-3 flex items-center justify-end gap-1 border-t border-gray-800 pt-2">
+              {actions(item)}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop: tabla */}
+      <div className="hidden md:block overflow-x-auto">
       <Table>
         <thead>
           <tr>
@@ -106,75 +211,19 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
                 )}
               </td>
               <td>
-                <div className="flex items-center gap-1">
-                  {item.status !== 'IN' && onCheckIn && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                      onClick={() => onCheckIn(item.id)}
-                      title="Check In"
-                    >
-                      <ArrowDownToLine className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {item.status === 'IN' && onCheckOut && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                      onClick={() => onCheckOut(item.id)}
-                      title="Check Out"
-                    >
-                      <ArrowUpFromLine className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {item.locationId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
-                      onClick={() => setView360LocationId(item.locationId)}
-                      title="Ver ubicación en 360°"
-                    >
-                      <MapPin className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Link href={`/dashboard/inventario/items/${item.id}`}>
-                    <Button variant="ghost" size="sm" title="Ver detalles">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                  <Link href={`/dashboard/inventario/items/${item.id}/editar`}>
-                    <Button variant="ghost" size="sm" title="Editar">
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                    onClick={() => {
-                      if (confirm('¿Estás seguro de que deseas eliminar este item?')) {
-                        onDelete(item.id)
-                      }
-                    }}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                <div className="flex items-center gap-1">{actions(item)}</div>
               </td>
             </tr>
           ))}
         </tbody>
       </Table>
+      </div>
 
       <PanoramaLocationModal
         isOpen={!!view360LocationId}
         onClose={() => setView360LocationId(null)}
         locationId={view360LocationId}
       />
-    </div>
+    </>
   )
 }

@@ -131,7 +131,7 @@ export default function ProductDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">{product.name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">{product.name}</h1>
             <p className="text-gray-400 mt-1 flex items-center gap-2">
               <span className="font-mono">{product.sku}</span>
               <span

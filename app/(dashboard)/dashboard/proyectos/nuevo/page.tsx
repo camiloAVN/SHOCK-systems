@@ -33,7 +33,7 @@ export default function NewProjectPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver a proyectos
         </Link>
-        <h1 className="text-3xl font-bold">Nuevo Proyecto</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Proyecto</h1>
         <p className="text-gray-400 mt-1">
           Crea un nuevo proyecto para tu cartera
         </p>

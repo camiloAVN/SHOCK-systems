@@ -116,7 +116,7 @@ export default function ContractorsPage() {
               <Users className="w-6 h-6 text-orange-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">Contratistas</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">Contratistas</h1>
               <p className="text-gray-400 mt-1">
                 Gestiona tus contratistas y proveedores de servicios
               </p>

@@ -85,7 +85,7 @@ export default function NewRfidTagPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Nuevo Tag RFID</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Tag RFID</h1>
           <p className="text-gray-400 mt-1">
             Registra manualmente un tag RFID
           </p>

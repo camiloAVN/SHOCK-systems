@@ -45,12 +45,12 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const breadcrumbs = generateBreadcrumbs()
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm px-6">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 sm:gap-4 border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm px-3 sm:px-6">
       {/* Mobile menu button */}
       {onMenuClick && (
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+          className="lg:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors shrink-0"
           aria-label="Toggle menu"
         >
           <Menu className="w-5 h-5" />
@@ -58,7 +58,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
       )}
 
       {/* Breadcrumbs */}
-      <nav className="flex items-center space-x-2 text-sm">
+      <nav className="flex items-center space-x-2 text-sm overflow-x-auto whitespace-nowrap scrollbar-none min-w-0">
         {breadcrumbs.map((crumb, index) => (
           <div key={crumb.href || index} className="flex items-center">
             {index > 0 && (

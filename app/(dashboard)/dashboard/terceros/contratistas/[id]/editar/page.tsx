@@ -81,7 +81,7 @@ export default function EditContractorPage() {
           <Users className="w-6 h-6 text-orange-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">Editar Contratista</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Editar Contratista</h1>
           <p className="text-gray-400 mt-1">
             Modificar &quot;{contractor.name}&quot;
           </p>

@@ -26,7 +26,7 @@ export function CategoriesTable({ categories, onDelete, onEdit }: CategoriesTabl
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Color</th>

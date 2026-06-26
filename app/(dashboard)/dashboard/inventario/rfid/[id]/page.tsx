@@ -138,7 +138,7 @@ export default function RfidTagDetailPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
                 <Radio className="w-8 h-8 text-orange-400" />
                 Tag RFID
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[tag.status].className}`}>

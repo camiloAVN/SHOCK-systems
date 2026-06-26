@@ -19,7 +19,7 @@ export default function MovementsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Movimientos de Inventario</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Movimientos de Inventario</h1>
         <p className="text-gray-400 mt-1">
           Historial de entradas, salidas y ajustes
         </p>

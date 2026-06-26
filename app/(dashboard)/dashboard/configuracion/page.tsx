@@ -170,7 +170,7 @@ export default function ConfiguracionPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
             <Settings className="w-8 h-8 text-orange-400" />
             Configuracion
           </h1>

@@ -43,7 +43,7 @@ export default function NewInventoryItemPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Nuevo Item de Inventario</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Item de Inventario</h1>
         <p className="text-gray-400 mt-1">
           Agrega un nuevo equipo al inventario
         </p>

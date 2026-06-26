@@ -47,7 +47,7 @@ export default function NewContractorPage() {
           <Users className="w-6 h-6 text-orange-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">Nuevo Contratista</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Contratista</h1>
           <p className="text-gray-400 mt-1">
             Agrega un nuevo contratista o proveedor de servicios
           </p>

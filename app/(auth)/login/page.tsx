@@ -15,7 +15,7 @@ export default function LoginPage() {
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-orange-500/50">
           <Lock className="w-8 h-8 text-white" />
         </div>
-        <h1 className="text-3xl font-bold mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">
           Bienvenido de <span className="text-gradient">Vuelta</span>
         </h1>
         <p className="text-gray-400">

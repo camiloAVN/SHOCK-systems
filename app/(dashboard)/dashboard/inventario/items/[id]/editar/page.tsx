@@ -87,7 +87,7 @@ export default function EditInventoryItemPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Editar Item</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Editar Item</h1>
           <p className="text-gray-400 mt-1">
             {item.assetTag || item.serialNumber || item.id.slice(-8)} - {item.product?.name}
           </p>

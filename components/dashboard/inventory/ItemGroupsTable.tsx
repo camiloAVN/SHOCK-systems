@@ -26,7 +26,7 @@ export function ItemGroupsTable({ groups, onDelete }: ItemGroupsTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Nombre</th>

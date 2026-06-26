@@ -95,7 +95,7 @@ export default function ContractorDetailPage() {
               <Users className="w-6 h-6 text-orange-400" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold">{contractor.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">{contractor.name}</h1>
               {contractor.city && (
                 <p className="text-gray-400 mt-1 flex items-center gap-2">
                   <MapPin className="w-4 h-4" />

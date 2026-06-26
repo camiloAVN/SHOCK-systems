@@ -55,7 +55,7 @@ export default function EditQuotationPage({
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver a la cotizacion
         </Link>
-        <h1 className="text-3xl font-bold">Editar Cotizacion</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Editar Cotizacion</h1>
         <p className="text-gray-400 mt-1">
           Actualiza la informacion de la cotizacion
         </p>

@@ -36,7 +36,7 @@ export default function NewItemGroupPage() {
           <Package2 className="w-6 h-6 text-orange-400" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold">Nuevo Grupo de Items</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Grupo de Items</h1>
           <p className="text-gray-400 mt-1">
             Crea un paquete de equipos para organizar tu inventario
           </p>

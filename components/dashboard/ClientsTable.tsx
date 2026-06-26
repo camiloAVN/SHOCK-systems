@@ -28,7 +28,7 @@ export function ClientsTable({ clients, onDelete, showActions = true }: ClientsT
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Nombre</th>

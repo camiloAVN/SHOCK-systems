@@ -85,7 +85,7 @@ export default function ConceptDetailPage() {
           </div>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{currentConcept.name}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">{currentConcept.name}</h1>
               {currentConcept.isActive ? (
                 <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-400">
                   Activo
@@ -142,7 +142,7 @@ export default function ConceptDetailPage() {
           </Card.Header>
           <Card.Content>
             {currentConcept.unitPrice ? (
-              <p className="text-3xl font-bold text-green-400">
+              <p className="text-2xl sm:text-3xl font-bold text-green-400">
                 {formatCurrency(Number(currentConcept.unitPrice))}
               </p>
             ) : (

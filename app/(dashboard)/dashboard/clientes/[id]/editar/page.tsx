@@ -56,7 +56,7 @@ export default function EditClientPage({
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver al cliente
         </Link>
-        <h1 className="text-3xl font-bold">Editar Cliente</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Editar Cliente</h1>
         <p className="text-gray-400 mt-1">
           Actualiza la información del cliente
         </p>

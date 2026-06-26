@@ -92,7 +92,7 @@ export default function QuotationDetailPage({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{quotationData.title}</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold">{quotationData.title}</h1>
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                   statusColors[quotationData.status]

@@ -37,7 +37,7 @@ export default function NewProductPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Nuevo Producto</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Producto</h1>
         <p className="text-gray-400 mt-1">
           Agrega un nuevo producto al catálogo
         </p>

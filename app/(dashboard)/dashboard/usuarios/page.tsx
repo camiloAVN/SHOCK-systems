@@ -321,7 +321,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Usuarios</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Usuarios</h1>
           <p className="text-gray-400 mt-1">
             Gestiona los usuarios del sistema y sus permisos
           </p>
@@ -346,7 +346,7 @@ export default function UsersPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-cards">
                 <thead>
                   <tr>
                     <th>Usuario</th>

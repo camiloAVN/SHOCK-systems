@@ -89,7 +89,7 @@ export default function SupplierDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">{supplier.name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">{supplier.name}</h1>
             {supplier.city && (
               <p className="text-gray-400 mt-1 flex items-center gap-2">
                 <MapPin className="w-4 h-4" />

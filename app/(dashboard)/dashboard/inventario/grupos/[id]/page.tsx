@@ -72,7 +72,7 @@ export default function ItemGroupDetailPage() {
             <Package2 className="w-8 h-8 text-orange-400" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold">{currentGroup.name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">{currentGroup.name}</h1>
             {currentGroup.description && (
               <p className="text-gray-400 mt-1 max-w-2xl">{currentGroup.description}</p>
             )}

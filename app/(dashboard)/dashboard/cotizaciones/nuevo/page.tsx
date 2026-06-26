@@ -32,7 +32,7 @@ export default function NewQuotationPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver a cotizaciones
         </Link>
-        <h1 className="text-3xl font-bold">Nueva Cotizacion</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nueva Cotizacion</h1>
         <p className="text-gray-400 mt-1">
           Crea una nueva cotizacion para tus clientes
         </p>

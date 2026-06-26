@@ -75,7 +75,7 @@ export default function EditSupplierPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold">Editar Proveedor</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Editar Proveedor</h1>
           <p className="text-gray-400 mt-1">{supplier.name}</p>
         </div>
       </div>

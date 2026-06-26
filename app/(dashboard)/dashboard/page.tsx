@@ -22,7 +22,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-3xl font-bold mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">
           Bienvenido al <span className="text-gradient">Dashboard</span>
         </h1>
         <p className="text-gray-400">

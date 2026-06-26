@@ -33,7 +33,7 @@ export default function NewClientPage() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Volver a clientes
         </Link>
-        <h1 className="text-3xl font-bold">Nuevo Cliente</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Cliente</h1>
         <p className="text-gray-400 mt-1">
           Agrega un nuevo cliente a tu cartera
         </p>

@@ -34,7 +34,7 @@ export function RfidTagsTable({ tags, onDelete }: RfidTagsTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>EPC</th>

@@ -75,7 +75,7 @@ export default function ProjectDetailPage({
         </Link>
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold">{projectData.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">{projectData.title}</h1>
             <p className="text-gray-400 mt-2">{projectData.description}</p>
             <div className="flex gap-2 mt-4">
               <Badge className={statusColors[projectData.status]}>

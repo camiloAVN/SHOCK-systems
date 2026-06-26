@@ -31,7 +31,7 @@ export default function NewSupplierPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Nuevo Proveedor</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Proveedor</h1>
         <p className="text-gray-400 mt-1">
           Agrega un nuevo proveedor de equipos
         </p>

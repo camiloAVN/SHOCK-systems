@@ -26,7 +26,7 @@ export function SuppliersTable({ suppliers, onDelete }: SuppliersTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Nombre</th>

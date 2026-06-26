@@ -239,7 +239,7 @@ export function ProjectsTable({ projects, onDelete, showActions = true }: Projec
 
   return (
     <div className="overflow-x-auto">
-      <Table>
+      <Table className="table-cards">
         <thead>
           <tr>
             <th>Proyecto</th>

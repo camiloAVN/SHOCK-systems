@@ -172,7 +172,7 @@ export default function InventoryItemDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
               {item.assetTag || item.serialNumber || item.id.slice(-8)}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[item.status].className}`}>
                 <StatusIcon className="w-4 h-4 inline mr-1" />
