@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { productSchema } from '@/lib/validations/product'
 import { canViewModule, canEditModule } from '@/lib/auth/check-permission'
 import { ZodError } from 'zod'
+import { deleteObjectFromR2, parseManagedR2KeyFromUrl } from '@/lib/storage/r2'
 
 // GET /api/products/[id] - Get single product
 export async function GET(
@@ -157,10 +158,12 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Check if product exists
+    // Check if product exists (need imageUrl + inventory count)
     const product = await prisma.product.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        imageUrl: true,
         _count: {
           select: { inventoryItems: true },
         },
@@ -183,7 +186,19 @@ export async function DELETE(
       return NextResponse.json({ success: true, softDeleted: true })
     }
 
-    // Otherwise, hard delete
+    // Otherwise, hard delete. If product image is managed in R2, delete it first.
+    if (product.imageUrl) {
+      try {
+        const key = parseManagedR2KeyFromUrl(product.imageUrl)
+        if (key) {
+          await deleteObjectFromR2(key)
+        }
+      } catch (err) {
+        console.error('Error deleting product image from R2:', err)
+        // Continue with product deletion even if image deletion fails
+      }
+    }
+
     await prisma.product.delete({
       where: { id },
     })
