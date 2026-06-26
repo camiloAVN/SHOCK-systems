@@ -1,10 +1,17 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { ImagePlus, X } from 'lucide-react'
+import { ImagePlus, X, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Button } from './Button'
+import { CameraCapture } from './CameraCapture'
+import { optimizeImage } from '@/lib/utils/image-optimizer'
 import toast from 'react-hot-toast'
+
+// Generous guard on the ORIGINAL file before optimization (phone photos can be
+// large). The optimized WebP we actually upload ends up well under the server's
+// 5MB limit.
+const MAX_ORIGINAL_SIZE = 40 * 1024 * 1024
 
 interface ImagePickerProps {
   value?: string | null
@@ -25,6 +32,7 @@ export function ImagePicker({
 }: ImagePickerProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = useCallback(
@@ -34,17 +42,36 @@ export function ImagePicker({
         return
       }
 
-      // Max file size: 5MB
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen no puede ser mayor a 5MB')
+      if (file.size > MAX_ORIGINAL_SIZE) {
+        toast.error('La imagen es demasiado grande (máx. 40MB)')
         return
       }
 
       try {
         setIsUploading(true)
 
+        // Optimize in the browser: fix EXIF orientation, downscale and convert
+        // to WebP before uploading. Keeps R2 storage and bandwidth low.
+        let upload: File
+        try {
+          const optimized = await optimizeImage(file)
+          upload = optimized.file
+        } catch (optimizeError) {
+          // If optimization fails, only fall back to the original when it's an
+          // already-supported type within the server limit.
+          const supported = ['image/jpeg', 'image/png', 'image/webp']
+          if (!supported.includes(file.type) || file.size > 5 * 1024 * 1024) {
+            const message =
+              optimizeError instanceof Error
+                ? optimizeError.message
+                : 'No se pudo procesar la imagen'
+            throw new Error(message)
+          }
+          upload = file
+        }
+
         const formData = new FormData()
-        formData.append('file', file)
+        formData.append('file', upload)
 
         const uploadResponse = await fetch('/api/uploads/products', {
           method: 'POST',
@@ -81,6 +108,14 @@ export function ImagePicker({
       }
     },
     [onChange, value]
+  )
+
+  const handleCameraCapture = useCallback(
+    (file: File) => {
+      setShowCamera(false)
+      void handleFileSelect(file)
+    },
+    [handleFileSelect]
   )
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,15 +269,37 @@ export function ImagePicker({
             <ImagePlus className="w-10 h-10 mx-auto mb-2 text-gray-500" />
             <p className="text-sm text-gray-400 mb-1">
               {isUploading
-                ? 'Subiendo imagen...'
+                ? 'Optimizando y subiendo imagen...'
                 : 'Click para seleccionar o arrastra una imagen'}
             </p>
             <p className="text-xs text-gray-500">
-              PNG, JPG, WEBP hasta 5MB
+              JPG, PNG o WEBP — se optimiza automáticamente
             </p>
           </div>
         )}
       </div>
+
+      <div className="mt-2 flex justify-center">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={disabled || isUploading}
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowCamera(true)
+          }}
+        >
+          <Camera className="mr-2 h-4 w-4" />
+          Tomar foto
+        </Button>
+      </div>
+
+      <CameraCapture
+        isOpen={showCamera}
+        onCapture={handleCameraCapture}
+        onClose={() => setShowCamera(false)}
+      />
 
       {error && (
         <p className="mt-1 text-sm text-red-400">{error}</p>

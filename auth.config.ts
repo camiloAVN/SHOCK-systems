@@ -25,6 +25,9 @@ const isProd = process.env.NODE_ENV === 'production'
 
 export const authConfig = {
   secret: process.env.AUTH_SECRET,
+  // Railway (y cualquier host detrás de proxy que no sea Vercel) necesita confiar
+  // en el host reenviado; sin esto NextAuth v5 rechaza el login en producción.
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: 8 * 60 * 60,  // 8 h

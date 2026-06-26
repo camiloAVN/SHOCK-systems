@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { hash } from 'bcrypt'
 import { prisma } from '@/lib/db/prisma'
+import { checkRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter'
 import { z } from 'zod'
 
 const setupSchema = z.object({
@@ -9,8 +10,28 @@ const setupSchema = z.object({
   password: z.string().min(8).optional(),
 })
 
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) return forwarded.split(',')[0].trim()
+  return request.headers.get('x-real-ip') || 'unknown'
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Limitar intentos para que el setupKey no sea forzable por fuerza bruta.
+    const clientIP = getClientIP(request)
+    const rateLimit = await checkRateLimit(
+      `register-admin:${clientIP}`,
+      RATE_LIMIT_CONFIGS.passwordReset
+    )
+    if (!rateLimit.success) {
+      console.warn(`[SECURITY] Rate limit exceeded for admin setup from IP: ${clientIP}`)
+      return NextResponse.json(
+        { error: 'Too many attempts. Try again later.' },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { setupKey, email, password } = setupSchema.parse(body)
 
@@ -60,11 +81,15 @@ export async function POST(request: NextRequest) {
     // Create admin user with hashed password (12 rounds for better security)
     const hashedPassword = await hash(adminPassword, 12)
 
+    // El primer admin debe ser SUPERADMIN: es el único rol con acceso implícito
+    // a todos los módulos (ADMIN/USER requieren registros UserPermission y, sin
+    // ellos, quedarían bloqueados en una base de datos recién creada).
     const user = await prisma.user.create({
       data: {
         email: adminEmail,
         name: 'Admin SHOCK',
         password: hashedPassword,
+        role: 'SUPERADMIN',
       },
     })
 
