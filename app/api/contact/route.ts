@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { contactSchema } from '@/lib/validations/contact'
 import { ZodError } from 'zod'
-import { Resend } from 'resend'
+import { getResend } from '@/lib/email/resend'
 import { render } from '@react-email/components'
 import { ContactNotificationTemplate } from '@/components/email/contact-notification-template'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 const CONTACT_DESTINATION = 'camilo.vargas@xenith.com.co'
 
@@ -26,7 +24,7 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: 'SHOCK Systems Contacto <onboarding@resend.dev>',
       to: [CONTACT_DESTINATION],
       replyTo: validatedData.email,

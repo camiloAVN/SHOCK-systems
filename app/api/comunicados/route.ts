@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db/prisma'
-import { Resend } from 'resend'
+import { getResend } from '@/lib/email/resend'
 import { z } from 'zod'
 import { SUPERADMIN_EMAIL } from '@/lib/validations/user'
 import { EmailTemplate } from '@/components/email/email-template'
 import { render } from '@react-email/components'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 const comunicadoSchema = z.object({
   subject: z.string().min(1, 'El asunto es requerido').max(200),
@@ -61,7 +59,7 @@ export async function POST(request: NextRequest) {
       })
     )
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: 'SHOCK Systems <onboarding@resend.dev>',
       to: [session.user.email!],
       bcc: emails,

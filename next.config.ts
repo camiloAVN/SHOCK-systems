@@ -76,6 +76,12 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // No bloquear el build de producción por ESLint (se corre aparte con `npm run lint`).
+  // El chequeo de tipos de TypeScript sigue activo como red de seguridad.
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Disable x-powered-by header
   poweredByHeader: false,
 

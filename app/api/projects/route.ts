@@ -4,11 +4,9 @@ import { projectSchema } from '@/lib/validations/project'
 import { canViewModule, canEditModule } from '@/lib/auth/check-permission'
 import { ZodError } from 'zod'
 import { Decimal } from '@prisma/client/runtime/library'
-import { Resend } from 'resend'
+import { getResend } from '@/lib/email/resend'
 import { render } from '@react-email/components'
 import { TaskNotificationTemplate } from '@/components/email/task-notification-template'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
 
 // GET /api/projects - List all projects with filters
 export async function GET(request: NextRequest) {
@@ -214,7 +212,7 @@ export async function POST(request: NextRequest) {
                   })),
                 })
               )
-              await resend.emails.send({
+              await getResend().emails.send({
                 from: 'SHOCK Systems <onboarding@resend.dev>',
                 to: [user.email],
                 subject: `Tareas asignadas - ${validatedData.title}`,
