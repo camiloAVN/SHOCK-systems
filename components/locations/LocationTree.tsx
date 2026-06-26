@@ -8,6 +8,9 @@ import {
   Trash2,
   Boxes,
   MapPin,
+  Globe,
+  Eye,
+  Pin,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import {
@@ -26,20 +29,26 @@ const typeStyles: Record<LocationType, string> = {
   POSICION: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
 }
 
-interface LocationTreeProps {
-  nodes: LocationNode[]
-  depth?: number
+interface LocationTreeCallbacks {
   onAddChild: (parent: LocationNode) => void
   onEdit: (node: LocationNode) => void
   onDelete: (node: LocationNode) => void
+  onManage360: (node: LocationNode) => void
+  onView360: (node: LocationNode) => void
+}
+
+interface LocationTreeProps extends LocationTreeCallbacks {
+  nodes: LocationNode[]
+  depth?: number
+  /** Algún ancestro tiene panorámica (para habilitar "Ver 360" heredado). */
+  ancestorHasPanorama?: boolean
 }
 
 export function LocationTree({
   nodes,
   depth = 0,
-  onAddChild,
-  onEdit,
-  onDelete,
+  ancestorHasPanorama = false,
+  ...callbacks
 }: LocationTreeProps) {
   return (
     <ul className={cn(depth > 0 && 'border-l border-gray-800 ml-4')}>
@@ -48,9 +57,8 @@ export function LocationTree({
           key={node.id}
           node={node}
           depth={depth}
-          onAddChild={onAddChild}
-          onEdit={onEdit}
-          onDelete={onDelete}
+          ancestorHasPanorama={ancestorHasPanorama}
+          {...callbacks}
         />
       ))}
     </ul>
@@ -60,20 +68,18 @@ export function LocationTree({
 function LocationTreeRow({
   node,
   depth,
-  onAddChild,
-  onEdit,
-  onDelete,
-}: {
-  node: LocationNode
-  depth: number
-  onAddChild: (parent: LocationNode) => void
-  onEdit: (node: LocationNode) => void
-  onDelete: (node: LocationNode) => void
-}) {
+  ancestorHasPanorama,
+  ...callbacks
+}: { node: LocationNode; depth: number; ancestorHasPanorama: boolean } & LocationTreeCallbacks) {
+  const { onAddChild, onEdit, onDelete, onManage360, onView360 } = callbacks
   const [expanded, setExpanded] = useState(depth < 1)
   const hasChildren = node.children.length > 0
   const canHaveChildren = allowedChildTypes(node.type).length > 0
   const itemCount = node._count?.items ?? 0
+
+  const hasOwnPano = !!node.panoramaUrl
+  const hasMarker = node.markerYaw !== null && node.markerPitch !== null
+  const canView360 = hasOwnPano || ancestorHasPanorama || hasMarker
 
   return (
     <li className="py-0.5">
@@ -105,6 +111,18 @@ function LocationTreeRow({
         {/* Code */}
         <span className="font-semibold text-gray-100 shrink-0">{node.code}</span>
 
+        {/* 360 / marker indicators */}
+        {hasOwnPano && (
+          <span title="Tiene imagen 360" className="text-sky-400 shrink-0">
+            <Globe className="w-3.5 h-3.5" />
+          </span>
+        )}
+        {hasMarker && (
+          <span title="Marcador colocado" className="text-orange-400 shrink-0">
+            <Pin className="w-3.5 h-3.5" />
+          </span>
+        )}
+
         {/* Description */}
         {node.description && (
           <span className="text-sm text-gray-400 truncate">— {node.description}</span>
@@ -120,6 +138,24 @@ function LocationTreeRow({
 
         {/* Actions */}
         <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {canView360 && (
+            <button
+              type="button"
+              onClick={() => onView360(node)}
+              className="p-1.5 rounded-md text-gray-400 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
+              title="Ver en 360"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onManage360(node)}
+            className="p-1.5 rounded-md text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+            title="Imagen 360 y marcador"
+          >
+            <Globe className="w-4 h-4" />
+          </button>
           {canHaveChildren && (
             <button
               type="button"
@@ -155,9 +191,8 @@ function LocationTreeRow({
           <LocationTree
             nodes={node.children}
             depth={depth + 1}
-            onAddChild={onAddChild}
-            onEdit={onEdit}
-            onDelete={onDelete}
+            ancestorHasPanorama={ancestorHasPanorama || hasOwnPano}
+            {...callbacks}
           />
         </div>
       )}

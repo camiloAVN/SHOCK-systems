@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Table } from '@/components/ui/Table'
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal'
+import { ProductPanoramaButton } from '@/components/locations/ProductPanoramaButton'
 import {
   ArrowLeft,
   Edit,
@@ -145,12 +146,20 @@ export default function ProductDetailPage() {
             </p>
           </div>
         </div>
-        <Link href={`/dashboard/inventario/productos/${product.id}/editar`}>
-          <Button variant="primary">
-            <Edit className="w-4 h-4 mr-2" />
-            Editar Producto
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <ProductPanoramaButton
+            productId={product.id}
+            productName={product.name}
+            variant="outline"
+            size="md"
+          />
+          <Link href={`/dashboard/inventario/productos/${product.id}/editar`}>
+            <Button variant="primary">
+              <Edit className="w-4 h-4 mr-2" />
+              Editar Producto
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

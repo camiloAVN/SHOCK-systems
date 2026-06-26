@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { InventoryItem } from '@/lib/validations/inventory'
 import { Table } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail'
-import { Eye, Edit, Trash2, ArrowDownToLine, ArrowUpFromLine, Tags } from 'lucide-react'
+import { PanoramaLocationModal } from '@/components/locations/PanoramaLocationModal'
+import { Eye, Edit, Trash2, ArrowDownToLine, ArrowUpFromLine, Tags, MapPin } from 'lucide-react'
 
 interface InventoryItemsTableProps {
   items: InventoryItem[]
@@ -28,6 +30,8 @@ const typeConfig = {
 }
 
 export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: InventoryItemsTableProps) {
+  const [view360LocationId, setView360LocationId] = useState<string | null>(null)
+
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
@@ -125,6 +129,17 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
                       <ArrowUpFromLine className="w-4 h-4" />
                     </Button>
                   )}
+                  {item.locationId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
+                      onClick={() => setView360LocationId(item.locationId)}
+                      title="Ver ubicación en 360°"
+                    >
+                      <MapPin className="w-4 h-4" />
+                    </Button>
+                  )}
                   <Link href={`/dashboard/inventario/items/${item.id}`}>
                     <Button variant="ghost" size="sm" title="Ver detalles">
                       <Eye className="w-4 h-4" />
@@ -154,6 +169,12 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
           ))}
         </tbody>
       </Table>
+
+      <PanoramaLocationModal
+        isOpen={!!view360LocationId}
+        onClose={() => setView360LocationId(null)}
+        locationId={view360LocationId}
+      />
     </div>
   )
 }

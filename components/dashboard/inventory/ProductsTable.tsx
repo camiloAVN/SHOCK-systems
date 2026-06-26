@@ -5,6 +5,7 @@ import { Product } from '@/lib/validations/product'
 import { Table } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail'
+import { ProductPanoramaButton } from '@/components/locations/ProductPanoramaButton'
 import { Eye, Edit, Trash2, Package } from 'lucide-react'
 
 interface ProductsTableProps {
@@ -93,6 +94,11 @@ export function ProductsTable({ products, onDelete }: ProductsTableProps) {
               </td>
               <td>
                 <div className="flex items-center gap-2">
+                  <ProductPanoramaButton
+                    productId={product.id}
+                    productName={product.name}
+                    iconOnly
+                  />
                   <Link href={`/dashboard/inventario/productos/${product.id}`}>
                     <Button variant="ghost" size="sm" title="Ver detalles">
                       <Eye className="w-4 h-4" />

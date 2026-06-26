@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { LocationTree } from '@/components/locations/LocationTree'
 import { LocationFormModal } from '@/components/locations/LocationFormModal'
+import { LocationPanoramaEditorModal } from '@/components/locations/LocationPanoramaEditorModal'
+import { PanoramaLocationModal } from '@/components/locations/PanoramaLocationModal'
 import { useLocations } from '@/hooks/useLocations'
 import { Location, LocationNode, LocationType } from '@/lib/validations/location'
 
 export default function UbicacionesPage() {
-  const { tree, isLoading, fetchTree, createLocation, editLocation, deleteLocation } =
+  const { tree, flatList, isLoading, fetchTree, createLocation, editLocation, deleteLocation } =
     useLocations()
 
   const [formOpen, setFormOpen] = useState(false)
@@ -21,6 +23,28 @@ export default function UbicacionesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<LocationNode | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const [editor360Node, setEditor360Node] = useState<Location | null>(null)
+  const [view360Id, setView360Id] = useState<string | null>(null)
+
+  // Mantener el nodo del editor sincronizado con los datos frescos del árbol
+  useEffect(() => {
+    setEditor360Node((current) => {
+      if (!current) return current
+      return flatList.find((l) => l.id === current.id) ?? current
+    })
+  }, [flatList])
+
+  // Ancestro con panorámica más cercano (host del marcador) para un nodo
+  const findPanoramaHost = (node: Location): Location | null => {
+    const byId = new Map(flatList.map((l) => [l.id, l]))
+    let cursor = node.parentId ? byId.get(node.parentId) : undefined
+    while (cursor) {
+      if (cursor.panoramaUrl) return cursor
+      cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined
+    }
+    return null
+  }
 
   useEffect(() => {
     fetchTree({ silent: true })
@@ -123,6 +147,8 @@ export default function UbicacionesPage() {
               onAddChild={openAddChild}
               onEdit={openEdit}
               onDelete={(n) => setDeleteTarget(n)}
+              onManage360={(n) => setEditor360Node(n)}
+              onView360={(n) => setView360Id(n.id)}
             />
           )}
         </CardContent>
@@ -136,6 +162,22 @@ export default function UbicacionesPage() {
         editing={formEditing}
         isSubmitting={isSubmitting}
         onSubmit={handleSubmit}
+      />
+
+      {/* 360 editor (upload + place marker) */}
+      <LocationPanoramaEditorModal
+        isOpen={!!editor360Node}
+        onClose={() => setEditor360Node(null)}
+        node={editor360Node}
+        host={editor360Node ? findPanoramaHost(editor360Node) : null}
+        onChanged={() => fetchTree({ silent: true })}
+      />
+
+      {/* 360 viewer */}
+      <PanoramaLocationModal
+        isOpen={!!view360Id}
+        onClose={() => setView360Id(null)}
+        locationId={view360Id}
       />
 
       {/* Delete confirmation */}

@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Table } from '@/components/ui/Table'
 import { ImagePreviewModal } from '@/components/ui/ImagePreviewModal'
+import { PanoramaLocationModal } from '@/components/locations/PanoramaLocationModal'
 import {
   ArrowLeft,
   Edit,
@@ -79,6 +80,7 @@ export default function InventoryItemDetailPage() {
   const router = useRouter()
   const { currentItem: item, isLoading, fetchItem, checkIn, checkOut } = useInventory()
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [is360Open, setIs360Open] = useState(false)
 
   const itemId = params.id as string
 
@@ -183,6 +185,12 @@ export default function InventoryItemDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {item.locationId && (
+            <Button variant="outline" onClick={() => setIs360Open(true)}>
+              <MapPin className="w-4 h-4 mr-2" />
+              Ver en 360°
+            </Button>
+          )}
           {item.status !== 'IN' && (
             <Button variant="outline" onClick={handleCheckIn}>
               <ArrowDownToLine className="w-4 h-4 mr-2" />
@@ -557,6 +565,13 @@ export default function InventoryItemDetailPage() {
         onClose={() => setIsPreviewOpen(false)}
         imageUrl={item.product?.imageUrl || null}
         alt={item.product?.name || 'Producto'}
+      />
+
+      <PanoramaLocationModal
+        isOpen={is360Open}
+        onClose={() => setIs360Open(false)}
+        locationId={item.locationId}
+        title={`Ubicación 360° — ${item.location || item.product?.name || ''}`}
       />
     </div>
   )

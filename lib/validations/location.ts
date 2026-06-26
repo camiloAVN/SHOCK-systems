@@ -90,6 +90,26 @@ export const updateLocationSchema = z.object({
 
 export type UpdateLocationFormData = z.infer<typeof updateLocationSchema>
 
+// Schema para asignar/quitar la imagen 360 de un nodo.
+// Las imágenes se sirven desde public/images/ubicaciones (mismo origen).
+export const panoramaSchema = z.object({
+  panoramaUrl: z
+    .string()
+    .regex(/^\/images\/ubicaciones\/[^/]+$/, 'Ruta de imagen inválida')
+    .nullable(),
+})
+
+export type PanoramaFormData = z.infer<typeof panoramaSchema>
+
+// Schema para colocar/borrar el marcador de un nodo sobre una panorámica.
+export const markerSchema = z.object({
+  markerYaw: z.number().nullable(),
+  markerPitch: z.number().nullable(),
+  markerOnLocationId: z.string().nullable(),
+})
+
+export type MarkerFormData = z.infer<typeof markerSchema>
+
 // Tipo base de una ubicación.
 export type Location = {
   id: string
@@ -98,12 +118,32 @@ export type Location = {
   description: string | null
   parentId: string | null
   fullPath: string
+  panoramaUrl: string | null
+  markerYaw: number | null
+  markerPitch: number | null
+  markerOnLocationId: string | null
   createdAt: Date
   updatedAt: Date
   _count?: {
     items: number
     children: number
   }
+}
+
+// Datos que el visor 360 necesita para mostrar un nodo objetivo.
+export type PanoramaContextMarker = {
+  id: string
+  yaw: number
+  pitch: number
+  label: string
+  highlight: boolean
+}
+
+export type PanoramaContext = {
+  panoramaUrl: string | null
+  panoramaLocationId: string | null
+  target: { yaw: number; pitch: number; label: string } | null
+  markers: PanoramaContextMarker[]
 }
 
 // Nodo del árbol (con hijos anidados).

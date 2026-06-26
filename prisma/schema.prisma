@@ -619,17 +619,27 @@ model Location {
   description String?      @db.Text
   parentId    String?
   fullPath    String       // Ruta legible precalculada (ej. "A · 1 · B · 2 · 3")
+
+  // Imagen 360 (Photo Sphere Viewer) y marcador
+  panoramaUrl        String?  // Imagen 360 equirectangular alojada en R2
+  markerYaw          Float?   // Posición del marcador de ESTE nodo (radianes)
+  markerPitch        Float?
+  markerOnLocationId String?  // Nodo cuya panorámica hospeda el marcador de este nodo
+
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   // Relations
-  parent   Location?       @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children Location[]      @relation("LocationHierarchy")
-  items    InventoryItem[]
+  parent           Location?       @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children         Location[]      @relation("LocationHierarchy")
+  markerOnLocation Location?       @relation("LocationMarkers", fields: [markerOnLocationId], references: [id], onDelete: SetNull)
+  markedLocations  Location[]      @relation("LocationMarkers")
+  items            InventoryItem[]
 
   @@unique([parentId, code])
   @@index([parentId])
   @@index([type])
+  @@index([markerOnLocationId])
   @@map("locations")
 }
 

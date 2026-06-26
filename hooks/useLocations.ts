@@ -7,6 +7,7 @@ import {
   LocationNode,
   LocationFormData,
   UpdateLocationFormData,
+  PanoramaContext,
 } from '@/lib/validations/location'
 import toast from 'react-hot-toast'
 
@@ -155,6 +156,68 @@ export function useLocations() {
     }
   }, [fetchTree, setLoading, setError])
 
+  const setPanorama = useCallback(async (id: string, panoramaUrl: string | null) => {
+    try {
+      const response = await fetch(`/api/locations/${id}/panorama`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ panoramaUrl }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al actualizar imagen 360')
+      }
+      await fetchTree({ silent: true })
+      toast.success(panoramaUrl ? 'Imagen 360 guardada' : 'Imagen 360 eliminada')
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error desconocido')
+      return false
+    }
+  }, [fetchTree])
+
+  const setMarker = useCallback(
+    async (
+      id: string,
+      data: { markerYaw: number; markerPitch: number; markerOnLocationId: string } | null
+    ) => {
+      try {
+        const response = await fetch(`/api/locations/${id}/marker`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(
+            data ?? { markerYaw: null, markerPitch: null, markerOnLocationId: null }
+          ),
+        })
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Error al actualizar marcador')
+        }
+        await fetchTree({ silent: true })
+        toast.success(data ? 'Marcador guardado' : 'Marcador eliminado')
+        return true
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Error desconocido')
+        return false
+      }
+    },
+    [fetchTree]
+  )
+
+  const fetchPanoramaContext = useCallback(
+    async (id: string): Promise<PanoramaContext | null> => {
+      try {
+        const response = await fetch(`/api/locations/${id}/panorama-context`)
+        if (!response.ok) throw new Error('Error al cargar la vista 360')
+        return (await response.json()) as PanoramaContext
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Error desconocido')
+        return null
+      }
+    },
+    []
+  )
+
   return {
     tree,
     flatList,
@@ -164,5 +227,8 @@ export function useLocations() {
     createLocation,
     editLocation,
     deleteLocation,
+    setPanorama,
+    setMarker,
+    fetchPanoramaContext,
   }
 }

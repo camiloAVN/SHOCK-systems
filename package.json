@@ -20,6 +20,8 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^5.2.2",
+    "@photo-sphere-viewer/core": "^5.14.3",
+    "@photo-sphere-viewer/markers-plugin": "^5.14.3",
     "@prisma/client": "^5.22.0",
     "@react-email/components": "1.0.7",
     "@react-pdf/renderer": "^4.3.2",
@@ -39,6 +41,7 @@
     "react-hot-toast": "^2.6.0",
     "resend": "^6.9.2",
     "tailwind-merge": "^3.4.0",
+    "three": "^0.184.0",
     "zod": "^4.3.5",
     "zustand": "^5.0.10"
   },
@@ -49,6 +52,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.184.0",
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "^15.5.10",
