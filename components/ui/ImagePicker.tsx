@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { ImagePlus, X, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
 import { Button } from './Button'
@@ -33,7 +33,18 @@ export function ImagePicker({
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [showCamera, setShowCamera] = useState(false)
+  const [useNativeCamera, setUseNativeCamera] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  // On phones/tablets the in-browser getUserMedia capture is unreliable across
+  // Android browsers, so we hand off to the OS camera through a file input with
+  // `capture`. Desktops (fine pointer, no touch) keep the live webcam modal.
+  useEffect(() => {
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches
+    const hasTouch = navigator.maxTouchPoints > 0
+    setUseNativeCamera(Boolean(coarsePointer) || hasTouch)
+  }, [])
 
   const handleFileSelect = useCallback(
     async (file: File) => {
@@ -120,8 +131,20 @@ export function ImagePicker({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    // Reset so selecting/capturing the same file again still fires onChange.
+    e.target.value = ''
     if (file) {
       handleFileSelect(file)
+    }
+  }
+
+  const handleTakePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (disabled || isUploading) return
+    if (useNativeCamera) {
+      cameraInputRef.current?.click()
+    } else {
+      setShowCamera(true)
     }
   }
 
@@ -218,6 +241,18 @@ export function ImagePicker({
         disabled={disabled || isUploading}
       />
 
+      {/* Mobile: opens the device's native camera (full screen) and returns the
+          photo as a file — works reliably on Android and iOS. */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleInputChange}
+        className="hidden"
+        disabled={disabled || isUploading}
+      />
+
       <div
         onClick={handleClick}
         onDragOver={handleDragOver}
@@ -285,10 +320,7 @@ export function ImagePicker({
           variant="ghost"
           size="sm"
           disabled={disabled || isUploading}
-          onClick={(e) => {
-            e.stopPropagation()
-            setShowCamera(true)
-          }}
+          onClick={handleTakePhoto}
         >
           <Camera className="mr-2 h-4 w-4" />
           Tomar foto
