@@ -7,7 +7,7 @@ import { Table } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
 import { ProductThumbnail } from '@/components/ui/ProductThumbnail'
 import { PanoramaLocationModal } from '@/components/locations/PanoramaLocationModal'
-import { Eye, Edit, Trash2, ArrowDownToLine, ArrowUpFromLine, Tags, MapPin } from 'lucide-react'
+import { Eye, Edit, Trash2, ArrowDownToLine, ArrowUpFromLine, Tags, MapPin, Boxes } from 'lucide-react'
 
 interface InventoryItemsTableProps {
   items: InventoryItem[]
@@ -129,6 +129,11 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeConfig[item.type].className}`}>
                     {typeConfig[item.type].label}
                   </span>
+                  {item.containerQuantity != null && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400">
+                      <Boxes className="w-3 h-3" /> {item.containerQuantity}
+                    </span>
+                  )}
                   {item.rfidTag && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400">
                       RFID
@@ -189,9 +194,19 @@ export function InventoryItemsTable({ items, onDelete, onCheckIn, onCheckOut }: 
                 </div>
               </td>
               <td>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeConfig[item.type].className}`}>
-                  {typeConfig[item.type].label}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${typeConfig[item.type].className}`}>
+                    {typeConfig[item.type].label}
+                  </span>
+                  {item.containerQuantity != null && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400"
+                      title={`${item.containerQuantity} items en el contenedor`}
+                    >
+                      <Boxes className="w-3 h-3" /> {item.containerQuantity}
+                    </span>
+                  )}
+                </div>
               </td>
               <td>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusConfig[item.status].className}`}>

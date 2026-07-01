@@ -51,7 +51,7 @@ export function LocationTree({
   ...callbacks
 }: LocationTreeProps) {
   return (
-    <ul className={cn(depth > 0 && 'border-l border-gray-800 ml-4')}>
+    <ul className={cn(depth > 0 && 'border-l border-gray-800 ml-2 sm:ml-4')}>
       {nodes.map((node) => (
         <LocationTreeRow
           key={node.id}
@@ -83,61 +83,64 @@ function LocationTreeRow({
 
   return (
     <li className="py-0.5">
-      <div className="group flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-gray-900/60 transition-colors">
-        {/* Expand toggle */}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className={cn(
-            'p-0.5 rounded text-gray-500 hover:text-gray-300 transition-transform',
-            !hasChildren && 'invisible',
-            expanded && 'rotate-90'
+      <div className="group flex flex-col gap-1.5 rounded-lg px-2 py-2 hover:bg-gray-900/60 transition-colors sm:flex-row sm:items-center sm:gap-2">
+        {/* Info */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          {/* Expand toggle */}
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className={cn(
+              'p-0.5 rounded text-gray-500 hover:text-gray-300 transition-transform shrink-0',
+              !hasChildren && 'invisible',
+              expanded && 'rotate-90'
+            )}
+            aria-label={expanded ? 'Colapsar' : 'Expandir'}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+
+          {/* Type badge */}
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium shrink-0',
+              typeStyles[node.type]
+            )}
+          >
+            {locationTypeLabels[node.type]}
+          </span>
+
+          {/* Code */}
+          <span className="font-semibold text-gray-100 shrink-0">{node.code}</span>
+
+          {/* 360 / marker indicators */}
+          {hasOwnPano && (
+            <span title="Tiene imagen 360" className="text-sky-400 shrink-0">
+              <Globe className="w-3.5 h-3.5" />
+            </span>
           )}
-          aria-label={expanded ? 'Colapsar' : 'Expandir'}
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
-
-        {/* Type badge */}
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-medium shrink-0',
-            typeStyles[node.type]
+          {hasMarker && (
+            <span title="Marcador colocado" className="text-orange-400 shrink-0">
+              <Pin className="w-3.5 h-3.5" />
+            </span>
           )}
-        >
-          {locationTypeLabels[node.type]}
-        </span>
 
-        {/* Code */}
-        <span className="font-semibold text-gray-100 shrink-0">{node.code}</span>
+          {/* Description */}
+          {node.description && (
+            <span className="text-sm text-gray-400 truncate">— {node.description}</span>
+          )}
 
-        {/* 360 / marker indicators */}
-        {hasOwnPano && (
-          <span title="Tiene imagen 360" className="text-sky-400 shrink-0">
-            <Globe className="w-3.5 h-3.5" />
-          </span>
-        )}
-        {hasMarker && (
-          <span title="Marcador colocado" className="text-orange-400 shrink-0">
-            <Pin className="w-3.5 h-3.5" />
-          </span>
-        )}
-
-        {/* Description */}
-        {node.description && (
-          <span className="text-sm text-gray-400 truncate">— {node.description}</span>
-        )}
-
-        {/* Item count */}
-        {itemCount > 0 && (
-          <span className="inline-flex items-center gap-1 text-xs text-gray-400 shrink-0">
-            <Boxes className="w-3.5 h-3.5" />
-            {itemCount}
-          </span>
-        )}
+          {/* Item count */}
+          {itemCount > 0 && (
+            <span className="inline-flex items-center gap-1 text-xs text-gray-400 shrink-0">
+              <Boxes className="w-3.5 h-3.5" />
+              {itemCount}
+            </span>
+          )}
+        </div>
 
         {/* Actions */}
-        <div className="ml-auto flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-1 self-end sm:self-auto sm:ml-auto shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           {canView360 && (
             <button
               type="button"
@@ -187,7 +190,7 @@ function LocationTreeRow({
 
       {/* Children */}
       {hasChildren && expanded && (
-        <div className="ml-2">
+        <div className="ml-1 sm:ml-2">
           <LocationTree
             nodes={node.children}
             depth={depth + 1}
