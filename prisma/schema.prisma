@@ -481,6 +481,7 @@ model InventoryItem {
   location     String?         // Snapshot del fullPath de la ubicación (compatibilidad/movimientos)
   locationId   String?         // Ubicación estructurada asociada
   containerId  String?         // ID del contenedor si está dentro de uno
+  containerQuantity Int?        // Cantidad de items dentro del contenedor (solo para type CONTAINER)
   purchaseDate DateTime?
   purchasePrice Decimal?       @db.Decimal(10, 2)
   warrantyExpiry DateTime?

@@ -8,6 +8,14 @@ export const inventoryItemSchema = z.object({
   condition: z.string().optional(),
   locationId: z.string().optional().nullable(),
   containerId: z.string().optional().nullable(),
+  // Cantidad de items dentro del contenedor. Solo aplica cuando type === 'CONTAINER'.
+  // El formulario normaliza el input vacío a null vía setValueAs.
+  containerQuantity: z
+    .number()
+    .int('Debe ser un número entero')
+    .min(0, 'La cantidad no puede ser negativa')
+    .nullable()
+    .optional(),
   purchaseDate: z.string().optional().nullable(),
   purchasePrice: z.number().min(0, 'El precio debe ser positivo').optional().nullable(),
   warrantyExpiry: z.string().optional().nullable(),
@@ -35,6 +43,7 @@ export type InventoryItem = {
   location: string | null
   locationId: string | null
   containerId: string | null
+  containerQuantity: number | null
   locationRef?: {
     id: string
     type: 'SECTOR' | 'CUADRANTE' | 'RACK' | 'NIVEL' | 'POSICION'

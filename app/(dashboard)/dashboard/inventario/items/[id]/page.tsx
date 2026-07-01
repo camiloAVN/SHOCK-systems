@@ -273,6 +273,15 @@ export default function InventoryItemDetailPage() {
                   <label className="text-sm text-gray-400">Condición</label>
                   <p className="mt-1">{item.condition || '-'}</p>
                 </div>
+                {item.type === 'CONTAINER' && item.containerQuantity != null && (
+                  <div>
+                    <label className="text-sm text-gray-400">Cantidad</label>
+                    <p className="mt-1 flex items-center gap-2">
+                      <Box className="w-4 h-4 text-gray-500" />
+                      {item.containerQuantity} items
+                    </p>
+                  </div>
+                )}
                 <div>
                   <label className="text-sm text-gray-400">Ubicación</label>
                   <p className="mt-1 flex items-center gap-2">

@@ -171,6 +171,9 @@ export async function PUT(
       location: locationPath,
       locationId,
       containerId: validatedData.containerId || null,
+      // La cantidad solo aplica a contenedores; para otros tipos se guarda null.
+      containerQuantity:
+        validatedData.type === 'CONTAINER' ? validatedData.containerQuantity ?? null : null,
       purchaseDate: validatedData.purchaseDate ? new Date(validatedData.purchaseDate) : null,
       purchasePrice: validatedData.purchasePrice ?? null,
       warrantyExpiry: validatedData.warrantyExpiry ? new Date(validatedData.warrantyExpiry) : null,
