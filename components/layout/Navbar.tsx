@@ -5,105 +5,87 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { cn } from '@/lib/utils/cn'
+import { navLinks } from '@/components/public/site-content'
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
 
-  const navLinks = [
-    { href: '/inicio', label: 'Inicio' },
-    { href: '/soluciones', label: 'Soluciones' },
-    { href: '/contacto', label: 'Contacto' },
-  ]
-
-  const isActive = (href: string) => pathname === href
+  const currentPage = (href: string) => (pathname === href ? 'page' : undefined)
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-gray-800/50 glass">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          {/* Logo */}
-          <Link href="/inicio" className="flex items-center space-x-2 group">
-            <Image
-              src="/images/logo_shock.png"
-              alt="Logo"
-              width={0}
-              height={0}
-              sizes="100vw"
-              className="h-40 w-auto object-contain transition-opacity duration-200 group-hover:opacity-90 pt-5"
-            />
-          </Link>
+    <nav className="site-nav" aria-label="Principal">
+      <div className="wrap site-nav-row">
+        {/* Logo */}
+        <Link href="/inicio" className="site-nav-logo">
+          <Image
+            src="/images/logo_shock_trim.png"
+            alt="SHOCK Producciones"
+            width={420}
+            height={174}
+            priority
+          />
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive(link.href)
-                    ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                )}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Desktop Login Button */}
-          <div className="hidden md:block">
-            <Link href="/login">
-              <Button variant="primary" size="sm" className="hover-glow">
-                Iniciar Sesión
-              </Button>
+        {/* Desktop Navigation */}
+        <div className="site-nav-links">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={currentPage(link.href)}
+              className="site-nav-link"
+            >
+              {link.label}
             </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
+          ))}
         </div>
+
+        {/* Desktop Actions */}
+        <div className="site-nav-actions">
+          <Link href="/login" className="site-nav-login">
+            Iniciar Sesión
+          </Link>
+          <Link href="/contacto" className="btn btn-primary btn-sm">
+            Cotizar
+          </Link>
+        </div>
+
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          className="site-nav-toggle"
+          aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
+          aria-expanded={isMenuOpen}
+        >
+          {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </div>
 
       {/* Mobile Navigation */}
       {isMenuOpen && (
-        <div className="md:hidden border-t border-gray-800/50 bg-gray-900/95 backdrop-blur-xl">
-          <div className="px-4 py-4 space-y-2">
+        <div className="site-nav-panel">
+          <div className="wrap">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={currentPage(link.href)}
                 onClick={() => setIsMenuOpen(false)}
-                className={cn(
-                  'block px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                  isActive(link.href)
-                    ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                    : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                )}
               >
                 {link.label}
               </Link>
             ))}
-            <div className="pt-2">
-              <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                <Button variant="primary" size="md" className="w-full">
-                  Iniciar Sesión
-                </Button>
-              </Link>
-            </div>
+            <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+              Iniciar Sesión
+            </Link>
+            <Link
+              href="/contacto"
+              onClick={() => setIsMenuOpen(false)}
+              className="btn btn-primary"
+            >
+              Cotizar
+            </Link>
           </div>
         </div>
       )}

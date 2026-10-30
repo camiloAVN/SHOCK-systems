@@ -1,89 +1,121 @@
-
+import { CtaBand } from '@/components/public/CtaBand'
 import { Hero } from '@/components/public/Hero'
+import { ImageSlot } from '@/components/public/ImageSlot'
+import { eventShowcase, services } from '@/components/public/site-content'
+import { ArrowRight } from 'lucide-react'
 import { Metadata } from 'next'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'SHOCK Systems - Control de Inventario y Alquiler de Equipos',
-  description: 'Soluciones innovadoras en ingeniería robótica y desarrollo de software. Transformamos ideas en realidad tecnológica.',
+  title: { absolute: 'SHOCK Producciones - Audiovisuales, equipos y eventos' },
+  description:
+    'Producción audiovisual, renta y venta de equipos, y agencia creativa para conciertos, eventos masivos y corporativos.',
 }
+
+const reasons = [
+  {
+    title: 'Un solo equipo',
+    text: 'Creatividad, técnica y logística trabajan juntas, así que hablas con una sola persona de principio a fin.',
+  },
+  {
+    title: 'Inventario con RFID',
+    text: 'Identificamos y rastreamos nuestros equipos con RFID, para saber dónde está cada uno y qué sale a tu evento.',
+  },
+  {
+    title: 'Rentar o comprar',
+    text: 'Si lo necesitas para una fecha, te lo rentamos. Si lo usas todo el año, te lo vendemos.',
+  },
+]
 
 export default function InicioPage() {
   return (
     <div>
       <Hero />
 
-      {/* Stats Section */}
-      <section className="py-20 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {[
-              { number: '50+', label: 'Proyectos Completados' },
-              { number: '30+', label: 'Clientes Satisfechos' },
-              { number: '10+', label: 'Años de Experiencia' },
-              { number: '98%', label: 'Tasa de Éxito' },
-            ].map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="text-4xl md:text-5xl font-bold text-gradient mb-2">
-                  {stat.number}
-                </div>
-                <div className="text-sm text-gray-400">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Services Preview */}
-      <section className="py-20 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Nuestros <span className="text-gradient">Servicios</span>
+      {/* Services */}
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head" data-reveal>
+            <h2 className="title-lg">
+              Cuatro canales, <span className="accent">un solo show</span>
             </h2>
-            <p className="text-gray-400 max-w-2xl mx-auto">
-              Ofrecemos soluciones completas desde la conceptualización hasta la implementación
+            <p className="lead">
+              Toma solo lo que necesitas o déjanos el evento completo.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                title: 'Ingeniería Robótica',
-                description: 'Diseño y desarrollo de sistemas robóticos industriales y de servicio.',
-                features: ['Automatización', 'Control de Procesos', 'Mantenimiento'],
-              },
-              {
-                title: 'Desarrollo de Software',
-                description: 'Aplicaciones web y móviles escalables y de alto rendimiento.',
-                features: ['Apps Web', 'Apps Móviles', 'APIs REST'],
-              },
-              {
-                title: 'Consultoría Técnica',
-                description: 'Asesoramiento experto para optimizar tus procesos tecnológicos.',
-                features: ['Auditorías', 'Optimización', 'Capacitación'],
-              },
-            ].map((service, index) => (
-              <div
-                key={index}
-                className="glass p-8 rounded-xl hover:border-orange-500/40 transition-all duration-200 group"
-              >
-                <h3 className="text-xl font-bold text-gray-200 mb-3 group-hover:text-orange-400 transition-colors">
-                  {service.title}
-                </h3>
-                <p className="text-gray-400 mb-4 text-sm">{service.description}</p>
-                <ul className="space-y-2">
-                  {service.features.map((feature, i) => (
-                    <li key={i} className="text-sm text-gray-500 flex items-center">
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <ol className="console" data-reveal>
+            {services.map((service, index) => (
+              <li key={service.id}>
+                <Link href={`/soluciones#${service.id}`} className="channel">
+                  <span className="fader" aria-hidden="true">
+                    <span
+                      className="fader-knob"
+                      style={{ '--level': service.level } as React.CSSProperties}
+                    />
+                  </span>
+                  <span className="channel-id">CH {String(index + 1).padStart(2, '0')}</span>
+                  <h3 className="title-md">{service.title}</h3>
+                  <p>{service.summary}</p>
+                  <span className="channel-more">
+                    Ver más
+                    <ArrowRight aria-hidden="true" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* Event types */}
+      <section className="section">
+        <div className="wrap">
+          <div className="section-head" data-reveal>
+            <h2 className="title-lg">
+              Del auditorio <span className="accent">al estadio</span>
+            </h2>
+            <p className="lead">
+              Ajustamos la producción al tamaño de tu público y de tu idea.
+            </p>
+          </div>
+
+          <div className="bento">
+            {eventShowcase.map((event) => (
+              <article key={event.title} className={`bento-item ${event.layout}`} data-reveal>
+                <ImageSlot image={event.image} sizes={event.sizes} />
+                <div className="bento-text">
+                  <h3 className="title-md">{event.title}</h3>
+                  <p>{event.text}</p>
+                </div>
+              </article>
             ))}
           </div>
         </div>
       </section>
+
+      {/* About */}
+      <section id="nosotros" className="section">
+        <div className="wrap about">
+          <div data-reveal>
+            <h2 className="title-lg">
+              Lo técnico se resuelve.
+              <br />
+              <span className="accent">Lo memorable se diseña.</span>
+            </h2>
+          </div>
+          <ul className="about-list" data-reveal>
+            {reasons.map((reason) => (
+              <li key={reason.title}>
+                <h3 className="title-md">{reason.title}</h3>
+                <p>{reason.text}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <CtaBand />
     </div>
   )
 }

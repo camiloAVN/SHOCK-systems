@@ -89,7 +89,7 @@ export function ContactForm() {
         <Input
           label="Teléfono"
           type="tel"
-          placeholder="+52 123 456 7890"
+          placeholder="+57 300 123 4567"
           error={errors.phone?.message}
           {...register('phone')}
         />
@@ -111,7 +111,7 @@ export function ContactForm() {
 
       <Textarea
         label="Mensaje *"
-        placeholder="Cuéntanos sobre tu proyecto..."
+        placeholder="Fecha, lugar, número de asistentes y lo que tienes en mente..."
         rows={6}
         error={errors.message?.message}
         {...register('message')}
@@ -121,7 +121,7 @@ export function ContactForm() {
         type="submit"
         variant="primary"
         size="lg"
-        className="w-full hover-glow"
+        className="btn btn-primary"
         isLoading={isSubmitting}
       >
         {isSubmitting ? 'Enviando...' : 'Enviar Mensaje'}
