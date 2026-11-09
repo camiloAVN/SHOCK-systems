@@ -3,10 +3,10 @@ builder = "NIXPACKS"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "npx prisma migrate deploy && npm run start"
-# Healthcheck disabled temporarily (Railway deploys stuck during GitHub incident).
-# Restore when stable:
-# healthcheckPath = "/api/health"
-# healthcheckTimeout = 300
+# Runs once before the new version starts; must EXIT (never start the server here).
+preDeployCommand = ["npx prisma migrate deploy"]
+startCommand = "npm run start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
