@@ -4,6 +4,7 @@ import {
   buildProductImageKey,
   buildPublicFileUrl,
   deleteObjectFromR2,
+  isProductImageKey,
   parseManagedR2KeyFromUrl,
   uploadBufferToR2,
 } from '@/lib/storage/r2'
@@ -93,6 +94,11 @@ export async function DELETE(request: NextRequest) {
     const key = parseManagedR2KeyFromUrl(imageUrl)
     if (!key) {
       return NextResponse.json({ success: true, skipped: true })
+    }
+
+    // Solo se pueden borrar imágenes de productos (no fotos de perfil u otros archivos)
+    if (!isProductImageKey(key)) {
+      return NextResponse.json({ error: 'Archivo no permitido' }, { status: 403 })
     }
 
     await deleteObjectFromR2(key)

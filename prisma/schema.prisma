@@ -34,8 +34,45 @@ model User {
   permissions        UserPermission[]
   assignedTasks      Task[]    @relation("TaskAssignee")
   auditLogs          AuditLog[]
+  teamMemberships    TeamMember[]
 
   @@map("users")
+}
+
+// ============================================
+// EQUIPOS DE TRABAJO (organización interna)
+// ============================================
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?  @db.Text
+  color       String?  // Color de acento (hex)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id               String   @id @default(cuid())
+  teamId           String
+  userId           String
+  role             String?  // Rol dentro del equipo (ej. "Jefe de producción")
+  responsibilities String?  @db.Text // Labores / responsabilidades
+  isLead           Boolean  @default(false)
+  order            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
 }
 
 // AuditLog - Registro de auditoria para acciones administrativas criticas

@@ -124,7 +124,7 @@ export default function UnknownRfidTagsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-cards">
                   <thead>
                     <tr>
                       <th>EPC</th>

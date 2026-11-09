@@ -125,12 +125,13 @@ export default function ProductDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/inventario/productos">
-            <Button variant="ghost" size="sm">
+          <Link href={`/dashboard/inventario/productos?productId=${product.id}`}>
+            <Button variant="ghost" size="sm" title="Volver a Equipos">
               <ArrowLeft className="w-4 h-4" />
             </Button>
           </Link>
           <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-400">Producto</p>
             <h1 className="text-2xl sm:text-3xl font-bold">{product.name}</h1>
             <p className="text-gray-400 mt-1 flex items-center gap-2">
               <span className="font-mono">{product.sku}</span>
@@ -146,7 +147,7 @@ export default function ProductDetailPage() {
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ProductPanoramaButton
             productId={product.id}
             productName={product.name}
@@ -228,25 +229,35 @@ export default function ProductDetailPage() {
           {/* Inventory Items */}
           <Card>
             <Card.Header>
-              <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Boxes className="w-5 h-5 text-orange-400" />
-                  <h2 className="text-lg font-semibold">Items en Inventario</h2>
-                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-400">
+                  <div>
+                    <h2 className="text-lg font-semibold leading-tight">Unidades físicas</h2>
+                    <p className="text-xs text-gray-500">Cada equipo real de este producto</p>
+                  </div>
+                  <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-400">
                     {product._count?.inventoryItems || 0}
                   </span>
                 </div>
-                <Link href={`/dashboard/inventario/items?productId=${product.id}`}>
-                  <Button variant="outline" size="sm">
-                    Ver todos
-                  </Button>
-                </Link>
-              </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link href={`/dashboard/inventario/productos?productId=${product.id}`}>
+                    <Button variant="ghost" size="sm">
+                      Ver en Equipos
+                    </Button>
+                  </Link>
+                  <Link href={`/dashboard/inventario/items/nuevo?productId=${product.id}`}>
+                    <Button variant="outline" size="sm">
+                      + Agregar unidad
+                    </Button>
+                  </Link>
+                </div>
+                </div>
             </Card.Header>
             <Card.Content>
               {product.inventoryItems && product.inventoryItems.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-cards">
                     <thead>
                       <tr>
                         <th>Serial / Asset Tag</th>
@@ -266,12 +277,12 @@ export default function ProductDetailPage() {
                       }) => (
                         <tr key={item.id}>
                           <td>
-                            <div>
-                              <p className="font-mono text-sm">{item.serialNumber || '-'}</p>
+                            <Link href={`/dashboard/inventario/items/${item.id}`} className="block hover:text-orange-400">
+                              <p className="font-mono text-sm">{item.serialNumber || item.assetTag || item.id.slice(-8)}</p>
                               {item.assetTag && (
                                 <p className="text-xs text-gray-500">{item.assetTag}</p>
                               )}
-                            </div>
+                            </Link>
                           </td>
                           <td>{getStatusBadge(item.status)}</td>
                           <td>{getConditionBadge(item.condition)}</td>
@@ -284,10 +295,10 @@ export default function ProductDetailPage() {
               ) : (
                 <div className="text-center py-8">
                   <Boxes className="w-10 h-10 text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-400">No hay items registrados</p>
+                  <p className="text-gray-400">Este producto aún no tiene unidades físicas</p>
                   <Link href={`/dashboard/inventario/items/nuevo?productId=${product.id}`}>
                     <Button variant="outline" size="sm" className="mt-3">
-                      Agregar item
+                      Registrar primera unidad
                     </Button>
                   </Link>
                 </div>

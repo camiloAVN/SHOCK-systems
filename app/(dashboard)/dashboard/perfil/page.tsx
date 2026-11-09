@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { changePasswordSchema, ChangePasswordFormData, roleLabels, roleColors, UserRole } from '@/lib/validations/user'
 import { cn } from '@/lib/utils/cn'
+import { AvatarUploader } from '@/components/profile/AvatarUploader'
 
 interface UserProfile {
   id: string
@@ -17,6 +18,7 @@ interface UserProfile {
   email: string
   role: UserRole
   position: string | null
+  image: string | null
   createdAt: string
 }
 
@@ -95,11 +97,22 @@ export default function PerfilPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-100">Mi Perfil</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-100">Mi Perfil</h1>
         <p className="text-gray-400 mt-1">
-          Informacion de tu cuenta y configuracion de seguridad
+          Información de tu cuenta y configuración de seguridad
         </p>
       </div>
+
+      {profile && (
+        <Card>
+          <AvatarUploader
+            image={profile.image}
+            name={profile.name}
+            email={profile.email}
+            onChange={(url) => setProfile((p) => (p ? { ...p, image: url } : p))}
+          />
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Profile Info Card */}

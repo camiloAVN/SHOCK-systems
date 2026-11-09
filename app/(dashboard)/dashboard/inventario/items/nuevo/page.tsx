@@ -15,6 +15,15 @@ export default function NewInventoryItemPage() {
   const { products, fetchProducts } = useProducts()
   const { flatList: locations, fetchTree } = useLocations()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [defaultProductId, setDefaultProductId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDefaultProductId(new URLSearchParams(window.location.search).get('productId'))
+  }, [])
+
+  const backHref = defaultProductId
+    ? `/dashboard/inventario/productos?productId=${defaultProductId}`
+    : '/dashboard/inventario/items'
 
   useEffect(() => {
     fetchProducts()
@@ -29,7 +38,11 @@ export default function NewInventoryItemPage() {
     try {
       const item = await createItem(data)
       if (item) {
-        router.push('/dashboard/inventario/items')
+        router.push(
+          data.productId
+            ? `/dashboard/inventario/productos?productId=${data.productId}`
+            : '/dashboard/inventario/items'
+        )
       }
     } finally {
       setIsSubmitting(false)
@@ -37,15 +50,15 @@ export default function NewInventoryItemPage() {
   }
 
   const handleCancel = () => {
-    router.push('/dashboard/inventario/items')
+    router.push(backHref)
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Nuevo Item de Inventario</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Agregar unidad</h1>
         <p className="text-gray-400 mt-1">
-          Agrega un nuevo equipo al inventario
+          Registra un equipo físico (con su serie, estado y ubicación) de un producto del catálogo.
         </p>
       </div>
 
@@ -55,6 +68,7 @@ export default function NewInventoryItemPage() {
             products={products}
             containers={containers}
             locations={locations}
+            defaultProductId={defaultProductId}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}

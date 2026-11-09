@@ -6,15 +6,22 @@ import { createUserSchema, SUPERADMIN_EMAIL } from '@/lib/validations/user'
 import { createAuditLog, getRequestClientInfo } from '@/lib/audit/log'
 import { ZodError } from 'zod'
 
-// Helper to check if user is superadmin or admin
-async function isAdminOrAbove(session: any): Promise<boolean> {
-  if (!session?.user?.id) return false
-  if (session.user.email === SUPERADMIN_EMAIL) return true
+// Current role of the logged-in user, read from the DB (never trust the JWT role)
+async function getActorRole(session: any): Promise<'SUPERADMIN' | 'ADMIN' | 'USER' | null> {
+  if (!session?.user?.id) return null
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true },
+    select: { role: true, isActive: true, email: true },
   })
-  return user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'
+  if (!user || !user.isActive) return null
+  if (user.email === SUPERADMIN_EMAIL) return 'SUPERADMIN'
+  return user.role
+}
+
+// Helper to check if user is superadmin or admin
+async function isAdminOrAbove(session: any): Promise<boolean> {
+  const role = await getActorRole(session)
+  return role === 'ADMIN' || role === 'SUPERADMIN'
 }
 
 // GET /api/users - List all users
@@ -55,6 +62,7 @@ export async function GET(request: NextRequest) {
         email: true,
         role: true,
         position: true,
+        image: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -109,6 +117,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Solo el SUPERADMIN puede crear administradores
+    if (validatedData.role === 'ADMIN' && (await getActorRole(session)) !== 'SUPERADMIN') {
+      return NextResponse.json(
+        { error: 'Solo el superadministrador puede crear administradores' },
+        { status: 403 }
+      )
+    }
+
     // No permitir crear otro SUPERADMIN
     if (validatedData.role === 'SUPERADMIN') {
       return NextResponse.json(
@@ -146,6 +162,7 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         position: true,
+        image: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,

@@ -148,7 +148,7 @@ export default function RfidTagDetailPage() {
               <p className="text-gray-400 mt-1 font-mono">{tag.epc}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {tag.status === 'ENROLLED' && tag.inventoryItem ? (
               <Button variant="outline" onClick={handleUnenroll}>
                 <Unlink className="w-4 h-4 mr-2" />
@@ -262,7 +262,7 @@ export default function RfidTagDetailPage() {
               <Card.Content>
                 {tag.detections && (tag.detections as Detection[]).length > 0 ? (
                   <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="table-cards">
                       <thead>
                         <tr>
                           <th>Fecha/Hora</th>

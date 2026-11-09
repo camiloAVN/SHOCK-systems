@@ -6,15 +6,22 @@ import { moduleLabels, updateUserSchema, SUPERADMIN_EMAIL } from '@/lib/validati
 import { createAuditLog, getRequestClientInfo } from '@/lib/audit/log'
 import { ZodError } from 'zod'
 
-// Helper to check if user is superadmin or admin
-async function isAdminOrAbove(session: any): Promise<boolean> {
-  if (!session?.user?.id) return false
-  if (session.user.email === SUPERADMIN_EMAIL) return true
+// Current role of the logged-in user, read from the DB (never trust the JWT role)
+async function getActorRole(session: any): Promise<'SUPERADMIN' | 'ADMIN' | 'USER' | null> {
+  if (!session?.user?.id) return null
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { role: true },
+    select: { role: true, isActive: true, email: true },
   })
-  return user?.role === 'ADMIN' || user?.role === 'SUPERADMIN'
+  if (!user || !user.isActive) return null
+  if (user.email === SUPERADMIN_EMAIL) return 'SUPERADMIN'
+  return user.role
+}
+
+// Helper to check if user is superadmin or admin
+async function isAdminOrAbove(session: any): Promise<boolean> {
+  const role = await getActorRole(session)
+  return role === 'ADMIN' || role === 'SUPERADMIN'
 }
 
 function normalizePermissions(permissions: Array<{ module: string; canView: boolean; canEdit: boolean }>) {
@@ -89,6 +96,7 @@ export async function GET(
         email: true,
         role: true,
         position: true,
+        image: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -169,6 +177,24 @@ export async function PUT(
       )
     }
 
+    // Un ADMIN no puede modificar a otros administradores ni otorgar el rol ADMIN
+    // (evita que un admin tome control de otra cuenta admin o escale privilegios)
+    const actorRole = await getActorRole(session)
+    if (actorRole !== 'SUPERADMIN') {
+      if (existingUser.role === 'ADMIN' || existingUser.role === 'SUPERADMIN') {
+        return NextResponse.json(
+          { error: 'Solo el superadministrador puede modificar a un administrador' },
+          { status: 403 }
+        )
+      }
+      if (validatedData.role === 'ADMIN') {
+        return NextResponse.json(
+          { error: 'Solo el superadministrador puede otorgar el rol de administrador' },
+          { status: 403 }
+        )
+      }
+    }
+
     // No permitir cambiar rol a SUPERADMIN
     if (validatedData.role === 'SUPERADMIN') {
       return NextResponse.json(
@@ -235,6 +261,7 @@ export async function PUT(
         email: true,
         role: true,
         position: true,
+        image: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -371,10 +398,18 @@ export async function DELETE(
     }
 
     // No permitir eliminar al superadmin
-    if (existingUser.email === SUPERADMIN_EMAIL) {
+    if (existingUser.email === SUPERADMIN_EMAIL || existingUser.role === 'SUPERADMIN') {
       return NextResponse.json(
         { error: 'No se puede eliminar al superadmin' },
         { status: 400 }
+      )
+    }
+
+    // Un ADMIN no puede desactivar a otro administrador
+    if (existingUser.role === 'ADMIN' && (await getActorRole(session)) !== 'SUPERADMIN') {
+      return NextResponse.json(
+        { error: 'Solo el superadministrador puede desactivar a un administrador' },
+        { status: 403 }
       )
     }
 

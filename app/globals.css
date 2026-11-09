@@ -208,3 +208,61 @@ body {
     margin-bottom: 0.1rem;
   }
 }
+
+/* ───────────────────────── Dashboard shell refinements ───────────────────────── */
+
+/* Subtle ambient glow behind the dashboard content */
+.dashboard-bg {
+  background:
+    radial-gradient(1200px 500px at 85% -10%, rgba(245, 146, 10, 0.07), transparent 60%),
+    radial-gradient(800px 400px at -10% 110%, rgba(245, 146, 10, 0.04), transparent 60%),
+    rgb(var(--color-background));
+}
+
+/* Space for the mobile bottom navigation (+ iOS safe area) */
+.pb-bottom-nav {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 1024px) {
+  .pb-bottom-nav {
+    padding-bottom: 2rem;
+  }
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Mobile readability: 16px inputs avoid iOS auto-zoom, bigger touch targets */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  .dashboard-main table.table-cards td {
+    font-size: 0.9rem;
+  }
+  .dashboard-main table.table-cards tr {
+    background: rgba(26, 26, 26, 0.75);
+    border-color: rgba(255, 255, 255, 0.07);
+  }
+  .dashboard-main button,
+  .dashboard-main a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Availability bar segments */
+.stack-bar {
+  display: flex;
+  height: 0.5rem;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  gap: 2px;
+}
+.stack-bar > span {
+  height: 100%;
+  transition: width 400ms ease;
+}

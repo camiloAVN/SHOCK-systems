@@ -29,8 +29,12 @@ const routeToModule: Record<string, SystemModule> = {
   '/dashboard/tareas': 'tareas',
 }
 
-// Rutas que no requieren permisos específicos (accesibles para todos los usuarios autenticados)
-const publicRoutes = ['/dashboard/perfil', '/dashboard/usuarios']
+// Rutas que no requieren permisos específicos (accesibles para todos los usuarios autenticados).
+// Ojo: el perfil SIEMPRE muestra los datos de la sesión, nunca de otro usuario.
+const publicRoutes = ['/dashboard/perfil', '/dashboard/equipo']
+
+// Rutas solo para ADMIN / SUPERADMIN (la API también lo valida en el servidor)
+const adminRoutes = ['/dashboard/usuarios', '/dashboard/comunicados']
 
 // Determinar el módulo basado en la ruta
 function getModuleFromPath(pathname: string): SystemModule | null {
@@ -70,7 +74,7 @@ function requiresEditPermission(pathname: string): boolean {
 export function RouteGuard({ children }: RouteGuardProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { canView, canEdit, isLoading, isSuperAdmin } = usePermissions()
+  const { canView, canEdit, isLoading, isSuperAdmin, isAdmin } = usePermissions()
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -82,6 +86,16 @@ export function RouteGuard({ children }: RouteGuardProps) {
     // Superadmin tiene acceso a todo
     if (isSuperAdmin) {
       setIsAuthorized(true)
+      return
+    }
+
+    // Rutas de administración
+    if (adminRoutes.some((r) => pathname === r || pathname.startsWith(r + '/'))) {
+      setIsAuthorized(isAdmin)
+      if (!isAdmin) {
+        const timer = setTimeout(() => router.push('/dashboard'), 2000)
+        return () => clearTimeout(timer)
+      }
       return
     }
 
@@ -108,7 +122,7 @@ export function RouteGuard({ children }: RouteGuardProps) {
 
       return () => clearTimeout(timer)
     }
-  }, [pathname, isLoading, isSuperAdmin, canView, canEdit, router])
+  }, [pathname, isLoading, isSuperAdmin, isAdmin, canView, canEdit, router])
 
   // Estado de carga
   if (isLoading || isAuthorized === null) {

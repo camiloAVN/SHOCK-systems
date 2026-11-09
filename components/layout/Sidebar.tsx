@@ -3,418 +3,170 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard,
-  FolderKanban,
-  Users,
-  FileText,
-  LogOut,
-  ChevronLeft,
-  UserCog,
-  Shield,
-  Package,
-  Boxes,
-  Tags,
-  Radio,
-  ArrowRightLeft,
-  FolderTree,
-  MapPin,
-  Package2,
-  UsersRound,
-  Briefcase,
-  UserCircle,
-  ListTodo,
-  Settings,
-  Mail,
-  LucideIcon,
-} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { LogOut, X, Shield, UserCircle } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
-import { Button } from '@/components/ui/Button'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 import { useAuth } from '@/hooks/useAuth'
 import { usePermissions } from '@/hooks/usePermissions'
-import { SUPERADMIN_EMAIL, SystemModule } from '@/lib/validations/user'
+import { navSections, isNavActive, resolveHref, NavItem } from '@/components/layout/nav-config'
 
 interface SidebarProps {
   isOpen?: boolean
   onClose?: () => void
 }
 
-interface NavItem {
-  name: string
-  href: string
-  icon: LucideIcon
-  module: SystemModule
+export function useVisibleNav() {
+  const { canView, isAdmin, isSuperAdmin, isLoading } = usePermissions()
+  const visible = (item: NavItem) => {
+    if (item.adminOnly) return isAdmin
+    if (!item.modules || item.modules.length === 0) return true
+    return item.modules.some((m) => canView(m))
+  }
+  const sections = navSections
+    .map((s) => ({
+      ...s,
+      items: s.items.filter(visible).map((i) => ({ ...i, href: resolveHref(i, canView) })),
+    }))
+    .filter((s) => s.items.length > 0)
+  return { sections, isLoading, isSuperAdmin }
 }
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
-  const { canView, isSuperAdmin, isAdmin, isLoading } = usePermissions()
-
-  const navigation: NavItem[] = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: LayoutDashboard,
-      module: 'dashboard',
-    },
-    {
-      name: 'Proyectos',
-      href: '/dashboard/proyectos',
-      icon: FolderKanban,
-      module: 'proyectos',
-    },
-    {
-      name: 'Tareas',
-      href: '/dashboard/tareas',
-      icon: ListTodo,
-      module: 'tareas',
-    },
-    {
-      name: 'Grupos',
-      href: '/dashboard/inventario/grupos',
-      icon: Package2,
-      module: 'grupos',
-    },
-    {
-      name: 'Clientes',
-      href: '/dashboard/clientes',
-      icon: Users,
-      module: 'clientes',
-    },
-    {
-      name: 'Cotizaciones',
-      href: '/dashboard/cotizaciones',
-      icon: FileText,
-      module: 'cotizaciones',
-    },
-  ]
-
-  const inventoryNavigation: NavItem[] = [
-    {
-      name: 'Inventario',
-      href: '/dashboard/inventario',
-      icon: Package,
-      module: 'inventario',
-    },
-    {
-      name: 'Productos',
-      href: '/dashboard/inventario/productos',
-      icon: Boxes,
-      module: 'productos',
-    },
-    {
-      name: 'Items',
-      href: '/dashboard/inventario/items',
-      icon: Tags,
-      module: 'items',
-    },
-    {
-      name: 'Categorias',
-      href: '/dashboard/categorias',
-      icon: FolderTree,
-      module: 'categorias',
-    },
-    {
-      name: 'Ubicaciones',
-      href: '/dashboard/inventario/ubicaciones',
-      icon: MapPin,
-      module: 'ubicaciones',
-    },
-    {
-      name: 'RFID',
-      href: '/dashboard/inventario/rfid',
-      icon: Radio,
-      module: 'rfid',
-    },
-    {
-      name: 'Movimientos',
-      href: '/dashboard/inventario/movimientos',
-      icon: ArrowRightLeft,
-      module: 'movimientos',
-    },
-  ]
-
-  const tercerosNavigation: NavItem[] = [
-    {
-      name: 'Contratistas',
-      href: '/dashboard/terceros/contratistas',
-      icon: UsersRound,
-      module: 'contratistas',
-    },
-    {
-      name: 'Conceptos',
-      href: '/dashboard/terceros/conceptos',
-      icon: Briefcase,
-      module: 'conceptos',
-    },
-  ]
-
-  const configNavigation: NavItem[] = [
-    {
-      name: 'Configuracion',
-      href: '/dashboard/configuracion',
-      icon: Settings,
-      module: 'configuracion',
-    },
-  ]
-
-  // Filtrar items según permisos
-  const filterByPermission = (items: NavItem[]) => {
-    return items.filter((item) => canView(item.module))
-  }
-
-  const filteredNavigation = filterByPermission(navigation)
-  const filteredInventory = filterByPermission(inventoryNavigation)
-  const filteredTerceros = filterByPermission(tercerosNavigation)
-  const filteredConfig = filterByPermission(configNavigation)
-
-  const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return pathname === href
-    }
-    return pathname?.startsWith(href)
-  }
-
-  // Renderizar lista de navegación
-  const renderNavList = (
-    items: NavItem[],
-    activeColor: string,
-    activeBorder: string
-  ) => (
-    <ul className="space-y-1">
-      {items.map((item) => {
-        const active = isActive(item.href)
-        return (
-          <li key={item.name}>
-            <Link
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                active
-                  ? `${activeColor} ${activeBorder}`
-                  : 'text-gray-400 hover:text-white hover:bg-gray-900'
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              {item.name}
-            </Link>
-          </li>
-        )
-      })}
-    </ul>
-  )
+  const { sections, isLoading, isSuperAdmin } = useVisibleNav()
 
   return (
     <>
-      {/* Mobile Overlay */}
-      {isOpen && onClose && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
+      {/* Mobile overlay */}
+      <div
+        className={cn(
+          'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-200 lg:hidden',
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
+        onClick={onClose}
+        aria-hidden
+      />
 
-      {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-screen w-64 border-r border-gray-800 bg-gray-950 transition-transform duration-200 lg:translate-x-0',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed top-0 left-0 z-50 flex h-[100dvh] w-[18rem] flex-col border-r border-white/[0.06] bg-[#0d0d0d] transition-transform duration-300 ease-out lg:w-64 lg:translate-x-0',
+          isOpen ? 'translate-x-0 shadow-2xl shadow-black' : '-translate-x-full'
         )}
+        aria-label="Navegación principal"
       >
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-20 items-center justify-between px-6 border-b border-gray-800">
-            <Link href="/dashboard" className="flex items-center space-x-2">
-              <Image
-                src="/images/logo_shock.png"
-                alt="Logo"
-                width={0}
-                height={0}
-                sizes="100vw"
-                className="h-30 w-auto object-contain"
-              />
-            </Link>
+        {/* Logo */}
+        <div className="relative flex h-24 shrink-0 items-center justify-center px-5">
+          <Link href="/dashboard" onClick={onClose} className="flex items-center" aria-label="Ir al inicio">
+            <Image
+              src="/images/logo_shock_trim.png"
+              alt="SHOCK Producciones"
+              width={420}
+              height={174}
+              priority
+              className="h-[68px] w-auto object-contain drop-shadow-[0_0_18px_rgba(245,146,10,0.18)]"
+            />
+          </Link>
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white lg:hidden"
+            aria-label="Cerrar menú"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="pointer-events-none absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-orange-500/40 to-transparent" />
+        </div>
 
-            {/* Close button (mobile only) */}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="lg:hidden p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto px-4 py-6">
-            {/* Loading state */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-              </div>
-            ) : (
-              <>
-                {/* Main Navigation */}
-                {filteredNavigation.length > 0 &&
-                  renderNavList(
-                    filteredNavigation,
-                    'bg-orange-500/10 text-orange-400',
-                    'border border-orange-500/20'
-                  )}
-
-                {/* Inventory Section */}
-                {filteredInventory.length > 0 && (
-                  <>
-                    <div className="mt-6 mb-2 px-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <Package className="w-3 h-3" />
-                        Inventario
-                      </p>
-                    </div>
-                    {renderNavList(
-                      filteredInventory,
-                      'bg-emerald-500/10 text-emerald-400',
-                      'border border-emerald-500/20'
-                    )}
-                  </>
-                )}
-
-                {/* Terceros Section */}
-                {filteredTerceros.length > 0 && (
-                  <>
-                    <div className="mt-6 mb-2 px-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <UsersRound className="w-3 h-3" />
-                        Terceros
-                      </p>
-                    </div>
-                    {renderNavList(
-                      filteredTerceros,
-                      'bg-cyan-500/10 text-cyan-400',
-                      'border border-cyan-500/20'
-                    )}
-                  </>
-                )}
-
-                {/* Config Section */}
-                {filteredConfig.length > 0 && (
-                  <>
-                    <div className="mt-6 mb-2 px-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <Settings className="w-3 h-3" />
-                        Configuracion
-                      </p>
-                    </div>
-                    {renderNavList(
-                      filteredConfig,
-                      'bg-amber-500/10 text-amber-400',
-                      'border border-amber-500/20'
-                    )}
-                  </>
-                )}
-
-                {/* Admin Section - Visible para ADMIN y SUPERADMIN */}
-                {isAdmin && (
-                  <>
-                    <div className="mt-6 mb-2 px-4">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                        <Shield className="w-3 h-3" />
-                        Administracion
-                      </p>
-                    </div>
-                    <ul className="space-y-1">
-                      <li>
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {isLoading ? (
+            <div className="space-y-2 px-2">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-10 animate-pulse rounded-lg bg-white/[0.04]" />
+              ))}
+            </div>
+          ) : (
+            sections.map((section, sIdx) => (
+              <div key={section.title} className={cn(sIdx > 0 && 'mt-5')}>
+                <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-500">
+                  {section.title}
+                </p>
+                <ul className="space-y-0.5">
+                  {section.items.map((item) => {
+                    const active = isNavActive(pathname, item)
+                    const Icon = item.icon
+                    return (
+                      <li key={item.href}>
                         <Link
-                          href="/dashboard/usuarios"
+                          href={item.href}
                           onClick={onClose}
+                          title={item.hint}
                           className={cn(
-                            'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                            isActive('/dashboard/usuarios')
-                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-900'
+                            'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors lg:text-sm',
+                            active ? 'text-white' : 'text-gray-400 hover:bg-white/[0.04] hover:text-gray-100'
                           )}
                         >
-                          <UserCog className="w-5 h-5" />
-                          Usuarios
-                        </Link>
-                      </li>
-                      <li>
-                        <Link
-                          href="/dashboard/comunicados"
-                          onClick={onClose}
-                          className={cn(
-                            'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200',
-                            isActive('/dashboard/comunicados')
-                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                              : 'text-gray-400 hover:text-white hover:bg-gray-900'
+                          {active && (
+                            <motion.span
+                              layoutId="sidebar-active"
+                              className="absolute inset-0 rounded-lg border border-orange-500/25 bg-gradient-to-r from-orange-500/15 to-orange-500/[0.03]"
+                              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                            />
                           )}
-                        >
-                          <Mail className="w-5 h-5" />
-                          Comunicados
+                          {active && (
+                            <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-orange-500" />
+                          )}
+                          <Icon
+                            className={cn(
+                              'relative h-[18px] w-[18px] shrink-0 transition-colors',
+                              active ? 'text-orange-400' : 'text-gray-500 group-hover:text-gray-300'
+                            )}
+                          />
+                          <span className="relative truncate">{item.name}</span>
                         </Link>
                       </li>
-                    </ul>
-                  </>
-                )}
-              </>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))
+          )}
+        </nav>
+
+        {/* User */}
+        <div className="safe-bottom shrink-0 border-t border-white/[0.06] p-3">
+          <Link
+            href="/dashboard/perfil"
+            onClick={onClose}
+            className={cn(
+              'flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-white/[0.04]',
+              pathname === '/dashboard/perfil' && 'bg-white/[0.04]'
             )}
-          </nav>
-
-          {/* User Section */}
-          <div className="border-t border-gray-800 p-4">
-            <div className="flex items-center gap-3 mb-3 px-2">
-              <div className={cn(
-                'w-10 h-10 rounded-full flex items-center justify-center',
-                isSuperAdmin
-                  ? 'bg-gradient-to-br from-red-500 to-orange-500'
-                  : 'bg-gradient-to-br from-orange-500 to-amber-500'
-              )}>
-                <span className="text-white font-medium text-sm">
-                  {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-200 truncate flex items-center gap-1">
-                  {user?.name || 'Usuario'}
-                  {isSuperAdmin && (
-                    <Shield className="w-3 h-3 text-red-400" />
-                  )}
-                </p>
-                <p className="text-xs text-gray-400 truncate">
-                  {user?.email}
-                </p>
-              </div>
+          >
+            <UserAvatar
+              src={user?.image}
+              name={user?.name}
+              email={user?.email}
+              size="md"
+              className={cn('h-10 w-10', isSuperAdmin && 'ring-2 ring-red-500/60')}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1 truncate text-sm font-medium text-gray-100">
+                {user?.name || 'Usuario'}
+                {isSuperAdmin && <Shield className="h-3 w-3 text-red-400" />}
+              </p>
+              <p className="truncate text-xs text-gray-500">{user?.email}</p>
             </div>
-
-            <div className="space-y-1">
-              <Link
-                href="/dashboard/perfil"
-                onClick={onClose}
-                className={cn(
-                  'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                  pathname === '/dashboard/perfil'
-                    ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                )}
-              >
-                <UserCircle className="w-4 h-4" />
-                Mi Perfil
-              </Link>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                onClick={logout}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Cerrar Sesion
-              </Button>
-            </div>
-          </div>
+            <UserCircle className="h-4 w-4 text-gray-500" />
+          </Link>
+          <button
+            onClick={logout}
+            className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+          >
+            <LogOut className="h-4 w-4" />
+            Cerrar sesión
+          </button>
         </div>
       </aside>
     </>

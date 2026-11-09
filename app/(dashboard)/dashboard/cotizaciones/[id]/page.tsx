@@ -105,7 +105,7 @@ export default function QuotationDetailPage({
               {quotationData.quotationNumber}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleDownloadPdf}>
               <Download className="w-4 h-4 mr-2" />
               Descargar PDF
@@ -149,7 +149,7 @@ export default function QuotationDetailPage({
             </Card.Header>
             <Card.Content>
               <div className="overflow-x-auto">
-                <Table>
+                <Table className="table-cards">
                   <thead>
                     <tr>
                       <th className="w-1/2">Descripcion</th>

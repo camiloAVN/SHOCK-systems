@@ -70,7 +70,7 @@ export default function ClientDetailPage({
               <p className="text-gray-400 mt-1">{clientData.company}</p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href={`/dashboard/clientes/${id}/editar`}>
               <Button variant="outline">
                 <Edit className="w-4 h-4 mr-2" />

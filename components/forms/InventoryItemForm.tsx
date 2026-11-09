@@ -17,6 +17,8 @@ interface InventoryItemFormProps {
   products: Product[]
   containers?: InventoryItem[]
   locations?: Location[]
+  /** Pre-select this product when creating a new unit */
+  defaultProductId?: string | null
   onSubmit: (data: InventoryItemFormData) => Promise<void>
   onCancel: () => void
   isSubmitting?: boolean
@@ -27,6 +29,7 @@ export function InventoryItemForm({
   products,
   containers = [],
   locations = [],
+  defaultProductId,
   onSubmit,
   onCancel,
   isSubmitting = false,
@@ -88,6 +91,18 @@ export function InventoryItemForm({
     item ? (products.find((p) => p.id === item.productId) ?? null) : null
   )
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Pre-select product (e.g. "Agregar unidad" from a product) once products are loaded
+  const preselectedRef = useRef(false)
+  useEffect(() => {
+    if (item || !defaultProductId || preselectedRef.current) return
+    const p = products.find((x) => x.id === defaultProductId)
+    if (p) {
+      preselectedRef.current = true
+      setSelectedProduct(p)
+      setValue('productId', p.id, { shouldValidate: true })
+    }
+  }, [item, defaultProductId, products, setValue])
 
   // Close dropdown when clicking outside
   useEffect(() => {

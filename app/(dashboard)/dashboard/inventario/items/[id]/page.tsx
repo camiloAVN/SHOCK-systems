@@ -166,25 +166,31 @@ export default function InventoryItemDetailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/inventario/items">
-            <Button variant="ghost" size="sm">
+          <Link href={`/dashboard/inventario/productos?productId=${item.productId}`}>
+            <Button variant="ghost" size="sm" title="Volver al producto">
               <ArrowLeft className="w-4 h-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              Unidad de{' '}
+              <Link href={`/dashboard/inventario/productos/${item.productId}`} className="text-orange-400 hover:underline normal-case tracking-normal text-xs">
+                {item.product?.name || 'producto'}
+              </Link>
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center gap-x-3 gap-y-1 font-mono">
               {item.assetTag || item.serialNumber || item.id.slice(-8)}
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusConfig[item.status].className}`}>
                 <StatusIcon className="w-4 h-4 inline mr-1" />
                 {statusConfig[item.status].label}
               </span>
             </h1>
-            <p className="text-gray-400 mt-1">
-              {item.product?.name} - {item.product?.sku}
+            <p className="text-gray-400 mt-1 text-sm">
+              SKU {item.product?.sku}
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {item.locationId && (
             <Button variant="outline" onClick={() => setIs360Open(true)}>
               <MapPin className="w-4 h-4 mr-2" />
@@ -329,7 +335,7 @@ export default function InventoryItemDetailPage() {
               <Card.Content>
                 {item.contents && item.contents.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="table-cards">
                       <thead>
                         <tr>
                           <th>ID / Serie</th>

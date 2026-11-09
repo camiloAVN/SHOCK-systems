@@ -152,6 +152,28 @@ export function buildProductImageKey(filename: string) {
   return `${productsPrefix}/${Date.now()}-${clean}`
 }
 
+export function isProductImageKey(key: string) {
+  const { productsPrefix } = getR2Config()
+  return key.startsWith(`${productsPrefix}/`) && !key.includes('..')
+}
+
+function avatarsPrefix() {
+  return (process.env.R2_AVATARS_PREFIX || 'avatars').replace(/^\/+|\/+$/g, '')
+}
+
+/** Avatar keys are namespaced by user id: avatars/<userId>/<timestamp>.<ext> */
+export function buildAvatarKey(userId: string, mimeType: string) {
+  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg'
+  const safeId = userId.replace(/[^a-zA-Z0-9_-]/g, '')
+  return `${avatarsPrefix()}/${safeId}/${Date.now()}.${ext}`
+}
+
+/** True only if `key` is an avatar that belongs to `userId` */
+export function isAvatarKeyOf(key: string, userId: string) {
+  const safeId = userId.replace(/[^a-zA-Z0-9_-]/g, '')
+  return key.startsWith(`${avatarsPrefix()}/${safeId}/`) && !key.includes('..')
+}
+
 export function buildPublicFileUrl(key: string) {
   const { publicUrl } = getR2Config()
   return `${publicUrl}/${key}`

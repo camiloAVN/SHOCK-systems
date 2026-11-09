@@ -219,7 +219,7 @@ export default function SupplierDetailPage() {
             <Card.Content>
               {products.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="table-cards">
                     <thead>
                       <tr>
                         <th>SKU</th>

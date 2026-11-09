@@ -86,7 +86,7 @@ export default function ProjectDetailPage({
               </Badge>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href={`/dashboard/proyectos/${id}/editar`}>
               <Button variant="outline">
                 <Edit className="w-4 h-4 mr-2" />

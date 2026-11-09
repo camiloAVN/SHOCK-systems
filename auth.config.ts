@@ -69,7 +69,16 @@ export const authConfig = {
   providers: [], // Los providers reales se agregan en auth.ts (requieren Node.js)
   callbacks: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, user }: any) {
+    async jwt({ token, user, trigger, session }: any) {
+      // Client-side `update({ image })` after changing the profile photo.
+      // ONLY the picture may be updated this way — role/id/permissions never.
+      if (trigger === 'update' && session && 'image' in session) {
+        const img = session.image
+        if (img === null || (typeof img === 'string' && img.startsWith('https://') && img.length < 1024)) {
+          token.picture = img
+        }
+      }
+
       if (user) {
         token.id = user.id
         token.email = user.email

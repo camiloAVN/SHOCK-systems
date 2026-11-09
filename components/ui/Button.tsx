@@ -9,19 +9,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
-    const baseStyles = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
+    const baseStyles = 'inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium active:scale-[0.98] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
 
     const variants = {
-      primary: 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-lg hover:shadow-orange-500/50',
-      secondary: 'bg-gray-800 text-gray-100 hover:bg-gray-700 border border-gray-700',
-      outline: 'border-2 border-orange-500 text-orange-400 hover:bg-orange-500/10',
-      ghost: 'text-gray-300 hover:bg-gray-800 hover:text-white',
+      primary: 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30',
+      secondary: 'bg-white/[0.06] text-gray-100 hover:bg-white/[0.1] border border-white/[0.08]',
+      outline: 'border border-orange-500/60 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500',
+      ghost: 'text-gray-300 hover:bg-white/[0.07] hover:text-white',
       danger: 'bg-red-600 text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/50',
     }
 
     const sizes = {
-      sm: 'h-8 px-3 text-sm',
-      md: 'h-10 px-4 text-base',
+      sm: 'h-9 px-3 text-sm sm:h-8',
+      md: 'h-11 px-4 text-[15px] sm:h-10',
       lg: 'h-12 px-6 text-lg',
     }
 

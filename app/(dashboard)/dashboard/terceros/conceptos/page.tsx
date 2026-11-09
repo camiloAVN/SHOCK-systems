@@ -70,7 +70,7 @@ export default function ConceptsPage() {
                 Buscar
               </Button>
             </form>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <select
                 className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                 value={filters.category}

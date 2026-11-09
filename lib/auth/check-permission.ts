@@ -10,67 +10,93 @@ interface PermissionCheck {
 }
 
 /**
- * Verifica si el usuario actual tiene permiso para ver un módulo
+ * Loads the CURRENT state of the logged-in user from the DB (role, isActive and
+ * the permission for `module`). The JWT can be up to 24 h old, so role changes
+ * and deactivations must be read from the database, never trusted from the token.
  */
-export async function canViewModule(module: SystemModule): Promise<PermissionCheck> {
+async function loadActor(module?: SystemModule) {
   const session = await auth()
+  if (!session?.user?.id) return null
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      id: true,
+      role: true,
+      isActive: true,
+      ...(module && {
+        permissions: { where: { module }, select: { canView: true, canEdit: true } },
+      }),
+    },
+  })
+  return user
+}
 
-  if (!session?.user?.id) {
+async function checkModule(module: SystemModule, need: 'view' | 'edit'): Promise<PermissionCheck> {
+  const actor = await loadActor(module)
+
+  if (!actor) {
     return { hasPermission: false, error: 'No autorizado', status: 401 }
   }
 
+  // Usuario desactivado: se corta el acceso de inmediato aunque su token siga vigente
+  if (!actor.isActive) {
+    return { hasPermission: false, error: 'Usuario desactivado', status: 401 }
+  }
+
   // Superadmin tiene todos los permisos
-  if (session.user.role === 'SUPERADMIN') {
-    return { hasPermission: true, userId: session.user.id }
+  if (actor.role === 'SUPERADMIN') {
+    return { hasPermission: true, userId: actor.id }
   }
 
-  // Verificar permiso en la base de datos
-  const permission = await prisma.userPermission.findUnique({
-    where: {
-      userId_module: {
-        userId: session.user.id,
-        module: module,
-      },
-    },
-  })
+  const permission = (actor as { permissions?: { canView: boolean; canEdit: boolean }[] }).permissions?.[0]
+  const ok = need === 'edit' ? !!permission?.canEdit : !!permission?.canView
 
-  if (!permission?.canView) {
-    return { hasPermission: false, error: 'No tienes permiso para ver este recurso', status: 403 }
+  if (!ok) {
+    return {
+      hasPermission: false,
+      error: need === 'edit' ? 'No tienes permiso para editar este recurso' : 'No tienes permiso para ver este recurso',
+      status: 403,
+    }
   }
 
-  return { hasPermission: true, userId: session.user.id }
+  return { hasPermission: true, userId: actor.id }
+}
+
+/**
+ * Verifica si el usuario actual tiene permiso para ver un módulo
+ */
+export async function canViewModule(module: SystemModule): Promise<PermissionCheck> {
+  return checkModule(module, 'view')
 }
 
 /**
  * Verifica si el usuario actual tiene permiso para editar un módulo
  */
 export async function canEditModule(module: SystemModule): Promise<PermissionCheck> {
-  const session = await auth()
+  return checkModule(module, 'edit')
+}
 
-  if (!session?.user?.id) {
-    return { hasPermission: false, error: 'No autorizado', status: 401 }
+/**
+ * Exige que el usuario actual sea SUPERADMIN (verificado contra la BD).
+ */
+export async function requireSuperAdmin(): Promise<PermissionCheck> {
+  const actor = await loadActor()
+  if (!actor) return { hasPermission: false, error: 'No autorizado', status: 401 }
+  if (!actor.isActive) return { hasPermission: false, error: 'Usuario desactivado', status: 401 }
+  if (actor.role !== 'SUPERADMIN') {
+    return { hasPermission: false, error: 'Solo el superadministrador puede realizar esta acción', status: 403 }
   }
+  return { hasPermission: true, userId: actor.id }
+}
 
-  // Superadmin tiene todos los permisos
-  if (session.user.role === 'SUPERADMIN') {
-    return { hasPermission: true, userId: session.user.id }
-  }
-
-  // Verificar permiso en la base de datos
-  const permission = await prisma.userPermission.findUnique({
-    where: {
-      userId_module: {
-        userId: session.user.id,
-        module: module,
-      },
-    },
-  })
-
-  if (!permission?.canEdit) {
-    return { hasPermission: false, error: 'No tienes permiso para editar este recurso', status: 403 }
-  }
-
-  return { hasPermission: true, userId: session.user.id }
+/**
+ * Exige un usuario autenticado y ACTIVO (verificado contra la BD).
+ */
+export async function requireActiveUser(): Promise<PermissionCheck & { role?: string }> {
+  const actor = await loadActor()
+  if (!actor) return { hasPermission: false, error: 'No autorizado', status: 401 }
+  if (!actor.isActive) return { hasPermission: false, error: 'Usuario desactivado', status: 401 }
+  return { hasPermission: true, userId: actor.id, role: actor.role }
 }
 
 /**
@@ -90,6 +116,5 @@ export async function checkAuth(): Promise<PermissionCheck> {
  * Verifica si es superadmin
  */
 export async function isSuperAdmin(): Promise<boolean> {
-  const session = await auth()
-  return session?.user?.role === 'SUPERADMIN'
+  return (await requireSuperAdmin()).hasPermission
 }
