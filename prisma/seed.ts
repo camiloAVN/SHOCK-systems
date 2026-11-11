@@ -1,9 +1,14 @@
 import { PrismaClient } from '@prisma/client'
 import { hash } from 'bcrypt'
 
+import { assertLocalDatabase } from '../lib/db/local-guard'
+
 const prisma = new PrismaClient()
 
 async function main() {
+  // El seed reescribe contraseñas con valores conocidos: solo puede correr contra una base local.
+  assertLocalDatabase()
+
   console.log('Seeding database...')
 
   // Hash password with bcrypt

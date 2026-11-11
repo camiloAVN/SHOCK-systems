@@ -5,7 +5,9 @@ import { NextResponse } from "next/server"
 // Instancia edge-compatible: solo usa authConfig (sin bcrypt ni Prisma)
 const { auth } = NextAuth(authConfig)
 
-const PUBLIC_API_PREFIXES = ['/api/auth', '/api/contact', '/api/health']
+// '/api/mobile' no usa la cookie de sesión web: se autentica con token Bearer dentro de
+// cada ruta mediante el envoltorio obligatorio de `lib/mobile/handler.ts`.
+const PUBLIC_API_PREFIXES = ['/api/auth', '/api/contact', '/api/health', '/api/mobile']
 
 export default auth((req) => {
   const { pathname } = req.nextUrl

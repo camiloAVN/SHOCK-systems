@@ -20,6 +20,8 @@ model User {
   password      String?   // For credentials provider
   role          UserRole  @default(USER)
   position      String?   // Cargo/puesto del usuario
+  cedula        String?   @unique // Documento de identidad del empleado
+  phone         String?   // Teléfono del empleado
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -35,8 +37,54 @@ model User {
   assignedTasks      Task[]    @relation("TaskAssignee")
   auditLogs          AuditLog[]
   teamMemberships    TeamMember[]
+  mobileSessions     MobileSession[]
 
   @@map("users")
+}
+
+// ============================================
+// APP MÓVIL (autenticación por token)
+// ============================================
+
+// MobileSession - Sesión de la app. Guarda solo el HASH del refresh token.
+model MobileSession {
+  id                  String    @id @default(cuid())
+  userId              String
+  refreshTokenHash    String    @unique
+  previousTokenHash   String?   @unique // Token anterior, válido un margen corto tras rotar
+  rotatedAt           DateTime? // Momento de la primera rotación del token anterior
+  passwordFingerprint String    // Huella de la contraseña vigente al iniciar sesión
+  expiresAt           DateTime
+  revokedAt           DateTime?
+  revokedReason       String?   // logout, refresh_reuse, password_changed, user_inactive
+  lastUsedAt          DateTime  @default(now())
+
+  // Datos informativos del dispositivo (la vinculación estricta es otra tabla, fase posterior)
+  installationId String?
+  platform       String?
+  deviceModel    String?
+  appVersion     String?
+  ipAddress      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("mobile_sessions")
+}
+
+// MobileLoginAttempt - Límite de intentos de login de la app (en Postgres, sin Redis)
+model MobileLoginAttempt {
+  key          String    @id // "email:<correo>" o "ip:<dirección>"
+  count        Int       @default(0)
+  windowStart  DateTime  @default(now())
+  blockedUntil DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@map("mobile_login_attempts")
 }
 
 // ============================================
