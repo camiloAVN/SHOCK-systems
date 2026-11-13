@@ -42,8 +42,71 @@ model User {
   mobileDevices      MobileDevice[]          @relation("MobileDeviceOwner")
   activeMobileDevice MobileDevice?           @relation("MobileDeviceActive")
   unboundDevices     MobileDevice[]          @relation("MobileDeviceUnboundBy")
+  faceEnrollments    FaceEnrollment[]        @relation("FaceEnrollmentOwner")
+  activeFaceEnrollment FaceEnrollment?       @relation("FaceEnrollmentActive")
+  reviewedEnrollments FaceEnrollment[]       @relation("FaceEnrollmentReviewer")
+  livenessAttempts   LivenessAttempt[]
 
   @@map("users")
+}
+
+enum FaceEnrollmentStatus {
+  PENDING    // Enviado, esperando revisión
+  APPROVED   // Foto de referencia vigente
+  REJECTED   // Rechazado por un revisor (puede volver a intentarlo)
+  SUPERSEDED // Reemplazado por un envío posterior
+  REVOKED    // Anulado por un revisor después de aprobado
+}
+
+// FaceEnrollment - Registro facial (foto de referencia) del empleado.
+// Solo puede haber UNO pendiente o aprobado por usuario: `activeUserId` vale el id del
+// usuario mientras el registro está PENDING o APPROVED, y NULL en cualquier otro estado.
+// La foto vive en el bucket R2 PRIVADO (`imageKey`); se borra al rechazar, reemplazar o anular.
+model FaceEnrollment {
+  id                String               @id @default(cuid())
+  userId            String
+  activeUserId      String?              @unique
+  status            FaceEnrollmentStatus @default(PENDING)
+  imageKey          String?              // NULL cuando la foto ya se borró del bucket
+  imageBytes        Int?
+  livenessMethod    String               // p. ej. "device_challenge_v1"
+  livenessAttemptId String               @unique
+  challengeSteps    String[]
+  quality           Json?                // Métricas de DetectFaces usadas para aceptar la foto
+  installationId    String?
+  submittedAt       DateTime             @default(now())
+  reviewedAt        DateTime?
+  reviewedById      String?
+  reviewNote        String?              @db.Text
+  imageDeletedAt    DateTime?
+
+  user       User            @relation("FaceEnrollmentOwner", fields: [userId], references: [id], onDelete: Cascade)
+  activeUser User?           @relation("FaceEnrollmentActive", fields: [activeUserId], references: [id], onDelete: Cascade)
+  reviewedBy User?           @relation("FaceEnrollmentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  attempt    LivenessAttempt @relation(fields: [livenessAttemptId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([status, submittedAt])
+  @@map("face_enrollments")
+}
+
+// LivenessAttempt - Intento de prueba de vida emitido por el servidor: fija el orden del
+// reto, caduca a los pocos minutos y solo puede usarse una vez.
+model LivenessAttempt {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String    // "enrollment" (más adelante también "clock")
+  method    String    // "device_challenge_v1"; con Face Liveness, el id de la sesión de AWS
+  steps     String[]
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enrollment FaceEnrollment?
+
+  @@index([userId, createdAt])
+  @@map("liveness_attempts")
 }
 
 // ConsentAcceptance - Constancia de aceptación del consentimiento de datos (app móvil).

@@ -21,6 +21,9 @@ export const systemModules = [
   'contratistas',
   'conceptos',
   'configuracion',
+  // App de asistencia: áreas/asignaciones y reportes/revisiones (registros faciales, marcaciones)
+  'asistencia_areas',
+  'asistencia_reportes',
 ] as const
 
 export type SystemModule = typeof systemModules[number]
@@ -43,6 +46,8 @@ export const moduleLabels: Record<SystemModule, string> = {
   contratistas: 'Contratistas',
   conceptos: 'Conceptos',
   configuracion: 'Configuracion',
+  asistencia_areas: 'Asistencia: areas',
+  asistencia_reportes: 'Asistencia: reportes',
 }
 
 // Agrupacion de modulos para la UI
@@ -50,6 +55,7 @@ export const moduleGroups = {
   general: ['dashboard', 'proyectos', 'tareas', 'grupos', 'clientes', 'cotizaciones'],
   inventario: ['inventario', 'productos', 'items', 'categorias', 'ubicaciones', 'rfid', 'movimientos'],
   terceros: ['contratistas', 'conceptos'],
+  asistencia: ['asistencia_areas', 'asistencia_reportes'],
   configuracion: ['configuracion'],
 } as const
 
@@ -57,6 +63,7 @@ export const moduleGroupLabels: Record<keyof typeof moduleGroups, string> = {
   general: 'General',
   inventario: 'Inventario',
   terceros: 'Terceros',
+  asistencia: 'Asistencia',
   configuracion: 'Configuracion',
 }
 

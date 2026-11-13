@@ -4,8 +4,11 @@
 // Uso: npm run mobile:smoke            (BASE_URL opcional, por defecto http://localhost:3000)
 //
 // Crea y borra su propio usuario de prueba. Solo corre contra una base LOCAL.
+import fs from 'node:fs'
 import { PrismaClient } from '@prisma/client'
+import { DeleteObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import bcrypt from 'bcrypt'
+import sharp from 'sharp'
 
 const BASE = process.env.BASE_URL || 'http://localhost:3000'
 const API = `${BASE}/api/mobile/v1`
@@ -188,6 +191,7 @@ async function main() {
   check('la API móvil no depende de la comprobación de origen web', csrf.status === 400, String(csrf.status))
 
   await fase3(user)
+  await fase4(user)
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -343,6 +347,186 @@ async function fase3(user) {
   check('el listado de usuarios devuelve cédula y teléfono', Array.isArray(r.json) && r.json.some((u) => u.cedula === '1000000777'), String(r.status))
 }
 
+// ───────────────────────── Fase 4: registro facial ─────────────────────────
+
+// Foto con un rostro real (la del dueño de la Fase 0, que se queda en su computador)
+const FACE_IMAGE = process.env.SMOKE_FACE_IMAGE || 'C:/dev/xenith-asistencia/spikes/fase0/scripts/fotos/referencia.jpg'
+// Imagen de más de 1 MB que ya está en el proyecto
+const BIG_IMAGE = 'public/images/ubicaciones/retiro.jpg'
+
+function r2() {
+  const { R2_ATT_ACCOUNT_ID, R2_ATT_ACCESS_KEY_ID, R2_ATT_SECRET_ACCESS_KEY, R2_ATT_BUCKET } = process.env
+  if (!R2_ATT_BUCKET) return null
+  return {
+    bucket: R2_ATT_BUCKET,
+    s3: new S3Client({
+      region: 'auto',
+      endpoint: `https://${R2_ATT_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId: R2_ATT_ACCESS_KEY_ID, secretAccessKey: R2_ATT_SECRET_ACCESS_KEY },
+    }),
+  }
+}
+
+async function objectExists(key) {
+  const c = r2()
+  try {
+    await c.s3.send(new HeadObjectCommand({ Bucket: c.bucket, Key: key }))
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function upload(token, attemptId, bytes, { filename = 'selfie.jpg', type = 'image/jpeg' } = {}) {
+  const form = new FormData()
+  if (attemptId) form.append('attemptId', attemptId)
+  if (bytes) form.append('photo', new Blob([bytes], { type }), filename)
+  const res = await fetch(`${API}/enrollment`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': FAKE_IP }, body: form })
+  const json = await res.json().catch(() => null)
+  return { status: res.status, data: json?.data, code: json?.error?.code, json }
+}
+
+const newAttempt = async (token) => (await call('POST', '/liveness/attempts', { token, body: { purpose: 'enrollment' } })).data
+
+async function fase4(user) {
+  if (!fs.existsSync(FACE_IMAGE) || !r2() || !process.env.AWS_ACCESS_KEY_ID) {
+    console.log('\n15-17. Registro facial: OMITIDO (faltan la foto de prueba o las claves de .env.local)')
+    failed++
+    return
+  }
+  const faceJpeg = fs.readFileSync(FACE_IMAGE)
+  const grayJpeg = await sharp({ create: { width: 640, height: 640, channels: 3, background: '#7a7a7a' } }).jpeg({ quality: 80 }).toBuffer()
+  const bigJpeg = fs.readFileSync(BIG_IMAGE)
+  const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7a7a7a' } }).png().toBuffer()
+
+  await resetUser()
+  await prisma.mobileLoginAttempt.deleteMany({})
+  await prisma.faceEnrollment.deleteMany({ where: { userId: user.id } })
+  await prisma.livenessAttempt.deleteMany({ where: { userId: user.id } })
+  await prisma.mobileDevice.deleteMany({ where: { userId: user.id } })
+  await prisma.consentAcceptance.deleteMany({ where: { userId: user.id } })
+
+  console.log('\n15. Intento de prueba de vida y precondiciones')
+  const phone = await loginAs('smoke-phone-FACE')
+  let a = await newAttempt(phone.accessToken)
+  check('el servidor emite un intento con el orden del reto', !!a?.attemptId && a.steps.length === 2 && a.steps.includes('blink') && a.method === 'device_challenge_v1', JSON.stringify(a))
+  let r = await upload(phone.accessToken, a.attemptId, faceJpeg)
+  check('sin consentimiento -> 403 CONSENT_REQUIRED', r.status === 403 && r.code === 'CONSENT_REQUIRED', `${r.status} ${r.code}`)
+  const doc = await call('GET', '/consent', { token: phone.accessToken })
+  await call('POST', '/consent', { token: phone.accessToken, body: { version: doc.data.version, textHash: doc.data.textHash } })
+  r = await upload(phone.accessToken, a.attemptId, faceJpeg)
+  check('sin teléfono vinculado -> 403 DEVICE_NOT_BOUND', r.status === 403 && r.code === 'DEVICE_NOT_BOUND', `${r.status} ${r.code}`)
+  await call('POST', '/device', { token: phone.accessToken, body: { platform: 'android' } })
+  r = await upload(phone.accessToken, null, faceJpeg)
+  check('sin id de intento -> 400 VALIDATION_ERROR', r.status === 400 && r.code === 'VALIDATION_ERROR', `${r.status} ${r.code}`)
+  r = await upload(phone.accessToken, 'intento-que-no-existe', faceJpeg)
+  check('intento inexistente -> 409 LIVENESS_ATTEMPT_INVALID', r.status === 409 && r.code === 'LIVENESS_ATTEMPT_INVALID', `${r.status} ${r.code}`)
+  a = await newAttempt(phone.accessToken)
+  await prisma.livenessAttempt.update({ where: { id: a.attemptId }, data: { expiresAt: new Date(Date.now() - 1000) } })
+  r = await upload(phone.accessToken, a.attemptId, faceJpeg)
+  check('intento caducado -> 409 LIVENESS_ATTEMPT_EXPIRED', r.status === 409 && r.code === 'LIVENESS_ATTEMPT_EXPIRED', `${r.status} ${r.code}`)
+  const other = await ensureUser(PHASE3_EMAILS.plain, 'USER')
+  const foreign = await prisma.livenessAttempt.create({ data: { userId: other.id, purpose: 'enrollment', method: 'device_challenge_v1', steps: ['blink', 'turn_left'], expiresAt: new Date(Date.now() + 60000) } })
+  r = await upload(phone.accessToken, foreign.id, faceJpeg)
+  check('intento de OTRO usuario -> 409 LIVENESS_ATTEMPT_INVALID', r.status === 409 && r.code === 'LIVENESS_ATTEMPT_INVALID', `${r.status} ${r.code}`)
+
+  console.log('\n16. Validación de la foto')
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, bigJpeg)
+  check('foto de más de 1 MB -> 413 IMAGE_TOO_LARGE', r.status === 413 && r.code === 'IMAGE_TOO_LARGE', `${r.status} ${r.code}`)
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, png, { filename: 'selfie.jpg', type: 'image/jpeg' })
+  check('PNG disfrazado de JPEG -> 400 INVALID_IMAGE', r.status === 400 && r.code === 'INVALID_IMAGE', `${r.status} ${r.code}`)
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, grayJpeg)
+  check('imagen sin rostro -> 422 FACE_NOT_FOUND', r.status === 422 && r.code === 'FACE_NOT_FOUND', `${r.status} ${r.code}`)
+  check('...y no se guardó ningún registro', (await prisma.faceEnrollment.count({ where: { userId: user.id } })) === 0)
+
+  a = await newAttempt(phone.accessToken)
+  r = await upload(phone.accessToken, a.attemptId, faceJpeg)
+  check('foto válida -> 201, registro pendiente', r.status === 201 && r.data?.activation?.enrollment?.status === 'pending', `${r.status} ${r.code} ${JSON.stringify(r.json?.error?.details ?? '')}`)
+  const first = await prisma.faceEnrollment.findFirst({ where: { userId: user.id, status: 'PENDING' } })
+  check('la foto está en el bucket privado', !!first?.imageKey && (await objectExists(first.imageKey)))
+  check('guarda método, reto y calidad', first?.livenessMethod === 'device_challenge_v1' && first?.challengeSteps?.length === 2 && !!first?.quality)
+  r = await upload(phone.accessToken, a.attemptId, faceJpeg)
+  check('reutilizar el mismo intento -> 409 LIVENESS_ATTEMPT_INVALID', r.status === 409 && r.code === 'LIVENESS_ATTEMPT_INVALID', `${r.status} ${r.code}`)
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, faceJpeg)
+  const second = await prisma.faceEnrollment.findFirst({ where: { userId: user.id, status: 'PENDING' } })
+  const oldOne = await prisma.faceEnrollment.findUnique({ where: { id: first.id } })
+  check('reenviar mientras está pendiente reemplaza el anterior', r.status === 201 && second?.id !== first.id && oldOne?.status === 'SUPERSEDED')
+  check('...y borra la foto anterior del bucket', !(await objectExists(first.imageKey)) && oldOne?.imageKey === null)
+
+  console.log('\n17. Revisión en la web')
+  const admin = await ensureUser(PHASE3_EMAILS.admin, 'ADMIN')
+  const viewer = await ensureUser(PHASE3_EMAILS.admin2, 'ADMIN')
+  await prisma.userPermission.deleteMany({ where: { userId: { in: [admin.id, viewer.id, other.id] } } })
+  const plainCookie = await webLogin(PHASE3_EMAILS.plain)
+  const viewerCookie = await webLogin(PHASE3_EMAILS.admin2)
+  let w = await web('/api/attendance/enrollments?status=pending', plainCookie)
+  check('sin el permiso de asistencia: la lista responde 403', w.status === 403, String(w.status))
+  w = await web('/api/attendance/enrollments?status=pending', viewerCookie)
+  check('ser ADMIN no basta: sin el módulo -> 403', w.status === 403, String(w.status))
+  await prisma.userPermission.create({ data: { userId: viewer.id, module: 'asistencia_reportes', canView: true, canEdit: false } })
+  w = await web('/api/attendance/enrollments?status=pending', viewerCookie)
+  check('con permiso de ver: lista el pendiente, sin poder revisar', w.status === 200 && w.json?.canReview === false && w.json?.enrollments?.some((e) => e.id === second.id), `${w.status}`)
+  check('la lista no expone la clave interna de la foto', !JSON.stringify(w.json).includes('enrollments/'))
+  w = await web(`/api/attendance/enrollments/${second.id}/review`, viewerCookie, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'approve' }) })
+  check('con permiso de ver: aprobar -> 403', w.status === 403, String(w.status))
+
+  await prisma.userPermission.create({ data: { userId: admin.id, module: 'asistencia_reportes', canView: true, canEdit: true } })
+  const adminCookie = await webLogin(PHASE3_EMAILS.admin)
+  w = await web(`/api/attendance/enrollments/${second.id}/photo`, adminCookie)
+  const photoRes = w.json?.url ? await fetch(w.json.url) : null
+  check('URL firmada de la foto -> se descarga la imagen', w.status === 200 && photoRes?.status === 200 && (photoRes.headers.get('content-type') ?? '').includes('jpeg'), `${w.status} ${photoRes?.status}`)
+  check('ver la foto queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'FACE_ENROLLMENT_PHOTO_VIEWED', entityId: second.id, performedBy: admin.id } })))
+  const unsigned = await fetch(new URL(w.json.url).origin + new URL(w.json.url).pathname)
+  check('la misma foto sin firma NO se puede leer', unsigned.status >= 400, String(unsigned.status))
+
+  const review = (id, body, cookie = adminCookie) => web(`/api/attendance/enrollments/${id}/review`, cookie, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  w = await review(second.id, { action: 'reject' })
+  check('rechazar sin motivo -> 400', w.status === 400, String(w.status))
+  w = await review(second.id, { action: 'reject', note: 'Foto borrosa (prueba)' })
+  check('rechazar con motivo -> 200', w.status === 200 && w.json?.status === 'REJECTED', `${w.status} ${JSON.stringify(w.json)}`)
+  check('...la foto rechazada se borra del bucket', !(await objectExists(second.imageKey)))
+  r = await call('GET', '/me', { token: phone.accessToken })
+  check('...y la app ve "rechazado" con el motivo', r.data?.activation?.enrollment?.status === 'rejected' && r.data.activation.enrollment.note === 'Foto borrosa (prueba)', JSON.stringify(r.data?.activation?.enrollment))
+
+  await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, faceJpeg)
+  const third = await prisma.faceEnrollment.findFirst({ where: { userId: user.id, status: 'PENDING' } })
+  w = await review(third.id, { action: 'approve' })
+  check('aprobar -> 200', w.status === 200 && w.json?.status === 'APPROVED', `${w.status} ${JSON.stringify(w.json)}`)
+  r = await call('GET', '/me', { token: phone.accessToken })
+  check('...la app ve "aprobado"', r.data?.activation?.enrollment?.status === 'approved', JSON.stringify(r.data?.activation?.enrollment))
+  check('...la foto aprobada se conserva', await objectExists(third.imageKey))
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, faceJpeg)
+  check('con un registro aprobado no se puede enviar otro -> 409', r.status === 409 && r.code === 'ENROLLMENT_ALREADY_APPROVED', `${r.status} ${r.code}`)
+  w = await review(third.id, { action: 'approve' })
+  check('aprobar dos veces -> 409', w.status === 409, String(w.status))
+
+  // Nadie revisa su propio registro
+  const ownAttempt = await prisma.livenessAttempt.create({ data: { userId: admin.id, purpose: 'enrollment', method: 'device_challenge_v1', steps: ['blink', 'turn_left'], expiresAt: new Date(Date.now() + 60000), usedAt: new Date() } })
+  const own = await prisma.faceEnrollment.create({ data: { userId: admin.id, activeUserId: admin.id, livenessMethod: 'device_challenge_v1', livenessAttemptId: ownAttempt.id, challengeSteps: ownAttempt.steps } })
+  w = await review(own.id, { action: 'approve' })
+  check('revisar el propio registro -> 403', w.status === 403, String(w.status))
+
+  w = await review(third.id, { action: 'revoke' })
+  check('anular sin motivo -> 400', w.status === 400, String(w.status))
+  w = await review(third.id, { action: 'revoke', note: 'No corresponde a la persona (prueba)' })
+  check('anular con motivo -> 200 y borra la foto', w.status === 200 && !(await objectExists(third.imageKey)), `${w.status}`)
+  r = await call('GET', '/me', { token: phone.accessToken })
+  check('...la app ve "anulado" y puede registrarse de nuevo', r.data?.activation?.enrollment?.status === 'revoked' && r.data.activation.enrollment.canSubmit === true)
+  check('aprobar, rechazar y anular quedan en la bitácora', (await prisma.auditLog.count({ where: { entityId: { in: [second.id, third.id] }, action: { in: ['FACE_ENROLLMENT_REJECTED', 'FACE_ENROLLMENT_APPROVED', 'FACE_ENROLLMENT_REVOKED'] } } })) === 3)
+  w = await web(`/api/users/${user.id}/mobile`, adminCookie)
+  check('la sección "App móvil" de la web muestra el registro', w.json?.enrollment?.status === 'revoked', JSON.stringify(w.json?.enrollment))
+}
+
+async function cleanupPhase4() {
+  const users = await prisma.user.findMany({ where: { email: { in: [EMAIL, ...Object.values(PHASE3_EMAILS)] } }, select: { id: true } })
+  const ids = users.map((u) => u.id)
+  const left = await prisma.faceEnrollment.findMany({ where: { userId: { in: ids }, imageKey: { not: null } }, select: { imageKey: true } })
+  const c = r2()
+  if (c) for (const { imageKey } of left) await c.s3.send(new DeleteObjectCommand({ Bucket: c.bucket, Key: imageKey })).catch(() => {})
+  await prisma.faceEnrollment.deleteMany({ where: { userId: { in: ids } } })
+  await prisma.livenessAttempt.deleteMany({ where: { userId: { in: ids } } })
+}
+
 async function cleanupPhase3() {
   const ids = (await prisma.user.findMany({ where: { email: { in: [...Object.values(PHASE3_EMAILS), 'smoke.cedula@prueba.local'] } }, select: { id: true } })).map((u) => u.id)
   const smokeUser = await prisma.user.findUnique({ where: { email: EMAIL }, select: { id: true } })
@@ -359,6 +543,9 @@ main()
   })
   .finally(async () => {
     // Limpieza: los usuarios de prueba y todo lo suyo
+    await cleanupPhase4().catch((e) => console.error('Limpieza fase 4:', e.message))
+    // Las entradas de bitácora de los registros faciales apuntan al id del registro
+    await prisma.auditLog.deleteMany({ where: { entityType: 'face_enrollment', description: { contains: 'prueba.local' } } }).catch(() => {})
     await cleanupPhase3().catch((e) => console.error('Limpieza fase 3:', e.message))
     const u = await prisma.user.findUnique({ where: { email: EMAIL } })
     if (u) await prisma.user.delete({ where: { id: u.id } })

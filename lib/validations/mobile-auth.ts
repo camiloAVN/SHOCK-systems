@@ -30,5 +30,9 @@ export const mobileDeviceBindSchema = z.object({
   appVersion: z.string().max(40).optional(),
 })
 
+export const mobileLivenessAttemptSchema = z.object({
+  purpose: z.enum(['enrollment']).default('enrollment'),
+})
+
 export type MobileLoginInput = z.infer<typeof mobileLoginSchema>
 export type MobileRefreshInput = z.infer<typeof mobileRefreshSchema>

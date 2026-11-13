@@ -17,6 +17,7 @@ import {
   UserCog,
   Mail,
   Contact,
+  ScanFace,
   LucideIcon,
 } from 'lucide-react'
 import { SystemModule } from '@/lib/validations/user'
@@ -91,6 +92,18 @@ export const navSections: NavSection[] = [
     ],
   },
   {
+    title: 'Asistencia',
+    items: [
+      {
+        name: 'Registros faciales',
+        href: '/dashboard/asistencia/registros',
+        icon: ScanFace,
+        modules: ['asistencia_reportes'],
+        hint: 'Aprobar las fotos de referencia de la app',
+      },
+    ],
+  },
+  {
     title: 'Sistema',
     items: [
       { name: 'Configuración', href: '/dashboard/configuracion', icon: Settings, modules: ['configuracion'] },
@@ -134,6 +147,8 @@ export const segmentLabels: Record<string, string> = {
   perfil: 'Mi perfil',
   equipo: 'Equipo',
   historial: 'Historial',
+  asistencia: 'Asistencia',
+  registros: 'Registros faciales',
   nuevo: 'Nuevo',
   editar: 'Editar',
 }

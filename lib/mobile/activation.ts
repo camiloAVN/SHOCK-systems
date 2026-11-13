@@ -1,12 +1,13 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { CURRENT_CONSENT, CURRENT_CONSENT_HASH } from '@/lib/attendance/consent'
+import { getEnrollmentActivation, type EnrollmentActivation } from '@/lib/attendance/enrollment'
 import { MobileApiError } from '@/lib/mobile/errors'
 import { revokeSession } from '@/lib/mobile/sessions'
 
 /**
  * Activación del empleado en la app: consentimiento vigente + teléfono vinculado
- * (+ enrolamiento facial a partir de la Fase 4).
+ * + registro facial aprobado.
  */
 
 export type DeviceStatus = 'this_device' | 'none' | 'other_device'
@@ -14,7 +15,7 @@ export type DeviceStatus = 'this_device' | 'none' | 'other_device'
 export type Activation = {
   consent: { accepted: boolean; currentVersion: string; acceptedVersion: string | null; acceptedAt: string | null }
   device: { status: DeviceStatus; boundAt: string | null; deviceModel: string | null; platform: string | null }
-  enrollment: { status: 'not_started' }
+  enrollment: EnrollmentActivation
 }
 
 /** Lógica pura: estado del teléfono que hace la petición frente al teléfono activo. */
@@ -56,7 +57,11 @@ export async function getActiveDevice(userId: string) {
 }
 
 export async function getActivation(userId: string, installationId: string | null): Promise<Activation> {
-  const [acceptance, device] = await Promise.all([latestAcceptance(userId), getActiveDevice(userId)])
+  const [acceptance, device, enrollment] = await Promise.all([
+    latestAcceptance(userId),
+    getActiveDevice(userId),
+    getEnrollmentActivation(userId),
+  ])
   return {
     consent: {
       accepted: acceptance !== null,
@@ -70,7 +75,7 @@ export async function getActivation(userId: string, installationId: string | nul
       deviceModel: device?.deviceModel ?? null,
       platform: device?.platform ?? null,
     },
-    enrollment: { status: 'not_started' },
+    enrollment,
   }
 }
 

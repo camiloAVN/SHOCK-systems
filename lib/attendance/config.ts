@@ -35,6 +35,31 @@ export const ATTENDANCE_CONFIG = {
     selfieMaxBytes: 1024 * 1024,
   },
 
+  /**
+   * Calidad mínima de la foto de referencia (registro facial), medida con DetectFaces.
+   * Valores iniciales; se guardan las métricas de cada envío para ajustarlos con datos reales.
+   */
+  enrollment: {
+    minFaceConfidence: 98,
+    /** Escala 0–100 de Rekognition */
+    minSharpness: 25,
+    minBrightness: 30,
+    maxBrightness: 98,
+    /** Ángulos máximos de la cabeza, en grados */
+    maxYaw: 20,
+    maxPitch: 20,
+    maxRoll: 25,
+    /** Ancho mínimo de la cara respecto al ancho de la foto (0–1) */
+    minFaceWidthRatio: 0.2,
+  },
+
+  /** Intento de prueba de vida emitido por el servidor */
+  liveness: {
+    attemptTtlMs: 3 * MINUTE,
+    /** Intentos que un usuario puede pedir por hora (evita abuso del endpoint) */
+    maxAttemptsPerHour: 30,
+  },
+
   /** Ubicación y áreas */
   geo: {
     maxGpsAccuracyMeters: 50,

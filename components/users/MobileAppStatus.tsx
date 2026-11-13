@@ -23,6 +23,20 @@ type MobileStatus = {
   } | null
   openSessions: number
   canManage: boolean
+  enrollment: {
+    status: 'none' | 'pending' | 'approved' | 'rejected' | 'revoked'
+    submittedAt: string | null
+    reviewedAt: string | null
+    note: string | null
+  }
+}
+
+const ENROLLMENT_LABEL: Record<MobileStatus['enrollment']['status'], { text: string; className: string }> = {
+  none: { text: 'Sin registrar', className: 'text-gray-400' },
+  pending: { text: 'Pendiente de revisión', className: 'text-orange-400' },
+  approved: { text: 'Aprobado', className: 'text-green-400' },
+  rejected: { text: 'Rechazado', className: 'text-red-400' },
+  revoked: { text: 'Anulado', className: 'text-red-400' },
 }
 
 const fmt = (iso: string) => format(new Date(iso), "dd MMM yyyy, HH:mm", { locale: es })
@@ -125,9 +139,17 @@ export function MobileAppStatus({ userId }: { userId: string }) {
             )}
           </div>
 
-          <div className="px-4 py-3 flex items-center justify-between">
-            <p className="text-gray-300">Registro facial</p>
-            <span className="text-sm text-gray-500">Próximamente</span>
+          <div className="px-4 py-3 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-gray-300">Registro facial</p>
+              {status.enrollment.note && <p className="text-sm text-gray-500">Motivo: {status.enrollment.note}</p>}
+            </div>
+            <span className={`text-sm text-right ${ENROLLMENT_LABEL[status.enrollment.status].className}`}>
+              {ENROLLMENT_LABEL[status.enrollment.status].text}
+              {status.enrollment.submittedAt && status.enrollment.status !== 'none' && (
+                <span className="block text-gray-500">{fmt(status.enrollment.reviewedAt ?? status.enrollment.submittedAt)}</span>
+              )}
+            </span>
           </div>
         </div>
       )}

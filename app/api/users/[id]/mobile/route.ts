@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { CURRENT_CONSENT, CURRENT_CONSENT_HASH } from '@/lib/attendance/consent'
+import { getEnrollmentActivation } from '@/lib/attendance/enrollment'
 import { prisma } from '@/lib/db/prisma'
 import { requireAdminOver } from '@/lib/mobile/admin-access'
 
@@ -12,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const access = await requireAdminOver(id, { write: false })
     if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
 
-    const [lastAcceptance, activeDevice, openSessions] = await Promise.all([
+    const [lastAcceptance, activeDevice, openSessions, enrollment] = await Promise.all([
       prisma.consentAcceptance.findFirst({
         where: { userId: id },
         orderBy: { acceptedAt: 'desc' },
@@ -23,6 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         select: { id: true, platform: true, deviceModel: true, appVersion: true, boundAt: true },
       }),
       prisma.mobileSession.count({ where: { userId: id, revokedAt: null, expiresAt: { gt: new Date() } } }),
+      getEnrollmentActivation(id),
     ])
 
     return NextResponse.json({
@@ -37,6 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       },
       device: activeDevice,
       openSessions,
+      enrollment,
       canManage: !(access.actorRole !== 'SUPERADMIN' && (access.target.role === 'ADMIN' || access.target.role === 'SUPERADMIN')),
     })
   } catch (error) {
