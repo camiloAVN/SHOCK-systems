@@ -19,7 +19,10 @@ import {
   Eye,
   Pencil,
   Briefcase,
+  IdCard,
+  Phone,
 } from 'lucide-react'
+import { MobileAppStatus } from '@/components/users/MobileAppStatus'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -63,6 +66,8 @@ export default function UsersPage() {
     password: '',
     role: 'USER' as UserRole,
     position: '',
+    cedula: '',
+    phone: '',
   })
   const [permissions, setPermissions] = useState<PermissionMap>(getDefaultPermissions())
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -148,12 +153,16 @@ export default function UsersPage() {
             email: formData.email,
             role: formData.role,
             position: formData.position || null,
+            cedula: formData.cedula.trim() || null,
+            phone: formData.phone.trim() || null,
             permissions: permissionsArray,
             ...(formData.password && { password: formData.password }),
           }
         : {
             ...formData,
             position: formData.position || null,
+            cedula: formData.cedula.trim() || null,
+            phone: formData.phone.trim() || null,
             permissions: permissionsArray,
           }
 
@@ -230,6 +239,8 @@ export default function UsersPage() {
       password: '',
       role: user.role,
       position: user.position || '',
+      cedula: user.cedula || '',
+      phone: user.phone || '',
     })
 
     // Cargar permisos del usuario
@@ -255,6 +266,8 @@ export default function UsersPage() {
       password: '',
       role: 'USER',
       position: '',
+      cedula: '',
+      phone: '',
     })
     setPermissions(getDefaultPermissions())
     setEditingUser(null)
@@ -525,6 +538,28 @@ export default function UsersPage() {
                     leftIcon={<Briefcase className="w-4 h-4" />}
                   />
 
+                  <Input
+                    label="Cedula"
+                    placeholder="Solo numeros, sin puntos"
+                    inputMode="numeric"
+                    value={formData.cedula}
+                    onChange={(e) =>
+                      setFormData({ ...formData, cedula: e.target.value.replace(/\D/g, '') })
+                    }
+                    leftIcon={<IdCard className="w-4 h-4" />}
+                  />
+
+                  <Input
+                    label="Telefono"
+                    placeholder="Ej: 300 123 4567"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
+                    leftIcon={<Phone className="w-4 h-4" />}
+                  />
+
                   <Select
                     label="Rol *"
                     options={roleOptions}
@@ -633,6 +668,8 @@ export default function UsersPage() {
                   ))}
                 </div>
               </div>
+
+              {editingUser && <MobileAppStatus userId={editingUser.id} />}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">
                 <Button

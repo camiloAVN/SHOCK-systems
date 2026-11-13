@@ -5,6 +5,7 @@ import { hash } from 'bcrypt'
 import { createUserSchema, SUPERADMIN_EMAIL } from '@/lib/validations/user'
 import { createAuditLog, getRequestClientInfo } from '@/lib/audit/log'
 import { ZodError } from 'zod'
+import { Prisma } from '@prisma/client'
 
 // Current role of the logged-in user, read from the DB (never trust the JWT role)
 async function getActorRole(session: any): Promise<'SUPERADMIN' | 'ADMIN' | 'USER' | null> {
@@ -62,6 +63,8 @@ export async function GET(request: NextRequest) {
         email: true,
         role: true,
         position: true,
+        cedula: true,
+        phone: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -117,6 +120,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (validatedData.cedula) {
+      const cedulaTaken = await prisma.user.findUnique({ where: { cedula: validatedData.cedula } })
+      if (cedulaTaken) {
+        return NextResponse.json({ error: 'Ya existe un usuario con esta cedula' }, { status: 400 })
+      }
+    }
+
     // Solo el SUPERADMIN puede crear administradores
     if (validatedData.role === 'ADMIN' && (await getActorRole(session)) !== 'SUPERADMIN') {
       return NextResponse.json(
@@ -150,6 +160,8 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         role: validatedData.role,
         position: validatedData.position || null,
+        cedula: validatedData.cedula ?? null,
+        phone: validatedData.phone ?? null,
         ...(permissionsData && permissionsData.length > 0 && {
           permissions: {
             create: permissionsData,
@@ -162,6 +174,8 @@ export async function POST(request: NextRequest) {
         email: true,
         role: true,
         position: true,
+        cedula: true,
+        phone: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -199,7 +213,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Datos invalidos', issues: error.issues },
+        { error: error.issues[0]?.message || 'Datos invalidos', issues: error.issues },
+        { status: 400 }
+      )
+    }
+
+    // Carrera entre la comprobación y la creación: la base de datos tiene la última palabra
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = String(error.meta?.target ?? '')
+      return NextResponse.json(
+        { error: target.includes('cedula') ? 'Ya existe un usuario con esta cedula' : 'Ya existe un usuario con este email' },
         { status: 400 }
       )
     }

@@ -13,6 +13,9 @@ export const MOBILE_ERROR_STATUS = {
   SESSION_REVOKED: 401,
   USER_INACTIVE: 403,
   RATE_LIMITED: 429,
+  CONSENT_REQUIRED: 403,
+  CONSENT_OUTDATED: 409,
+  DEVICE_BOUND_ELSEWHERE: 409,
   SERVER_MISCONFIGURED: 500,
   INTERNAL_ERROR: 500,
 } as const
@@ -28,6 +31,9 @@ const DEFAULT_MESSAGES: Record<MobileErrorCode, string> = {
   SESSION_REVOKED: 'La sesión fue cerrada. Inicia sesión de nuevo',
   USER_INACTIVE: 'Usuario desactivado',
   RATE_LIMITED: 'Demasiados intentos. Intenta más tarde',
+  CONSENT_REQUIRED: 'Primero debes aceptar la autorización de tratamiento de datos',
+  CONSENT_OUTDATED: 'El texto de la autorización cambió. Vuelve a leerlo y aceptarlo',
+  DEVICE_BOUND_ELSEWHERE: 'Tu cuenta está vinculada a otro teléfono',
   SERVER_MISCONFIGURED: 'El servidor no está configurado para la app',
   INTERNAL_ERROR: 'Error interno',
 }

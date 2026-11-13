@@ -69,6 +69,31 @@ export const permissionSchema = z.object({
 
 export type Permission = z.infer<typeof permissionSchema>
 
+// Cédula y teléfono del empleado (opcionales). Texto vacío = sin dato (null).
+const emptyToNull = (value: unknown) => (typeof value === 'string' && value.trim() === '' ? null : value)
+
+const cedulaSchema = z.preprocess(
+  emptyToNull,
+  z
+    .string()
+    .trim()
+    .regex(/^\d{5,15}$/, 'La cedula debe tener entre 5 y 15 digitos, sin puntos ni espacios')
+    .nullable()
+    .optional()
+)
+
+const phoneSchema = z.preprocess(
+  emptyToNull,
+  z
+    .string()
+    .trim()
+    .min(7, 'El telefono debe tener al menos 7 caracteres')
+    .max(20, 'El telefono no puede exceder 20 caracteres')
+    .regex(/^[+\d\s()-]+$/, 'El telefono solo puede tener numeros, espacios, +, - y parentesis')
+    .nullable()
+    .optional()
+)
+
 export const createUserSchema = z.object({
   name: z
     .string()
@@ -91,6 +116,8 @@ export const createUserSchema = z.object({
     .max(100, 'El cargo no puede exceder 100 caracteres')
     .optional()
     .nullable(),
+  cedula: cedulaSchema,
+  phone: phoneSchema,
   permissions: z.array(permissionSchema).optional(),
 })
 
@@ -119,6 +146,8 @@ export const updateUserSchema = z.object({
     .max(100, 'El cargo no puede exceder 100 caracteres')
     .optional()
     .nullable(),
+  cedula: cedulaSchema,
+  phone: phoneSchema,
   isActive: z.boolean().optional(),
   permissions: z.array(permissionSchema).optional(),
 })
@@ -140,6 +169,8 @@ export type User = {
   email: string
   role: UserRole
   position: string | null
+  cedula?: string | null
+  phone?: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date

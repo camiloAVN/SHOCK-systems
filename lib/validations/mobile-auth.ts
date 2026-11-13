@@ -19,5 +19,16 @@ export const mobileRefreshSchema = z.object({
   refreshToken: z.string().min(20, 'Refresh token inválido').max(200),
 })
 
+export const mobileConsentAcceptSchema = z.object({
+  version: z.string().min(1).max(60),
+  textHash: z.string().regex(/^[0-9a-f]{64}$/, 'Huella inválida'),
+})
+
+export const mobileDeviceBindSchema = z.object({
+  platform: z.enum(['android', 'ios']).optional(),
+  deviceModel: z.string().max(120).optional(),
+  appVersion: z.string().max(40).optional(),
+})
+
 export type MobileLoginInput = z.infer<typeof mobileLoginSchema>
 export type MobileRefreshInput = z.infer<typeof mobileRefreshSchema>

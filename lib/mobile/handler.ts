@@ -16,6 +16,8 @@ export type MobileActor = {
   userId: string
   sessionId: string
   role: 'SUPERADMIN' | 'ADMIN' | 'USER'
+  /** Id de instalación con el que se inició la sesión (identifica el teléfono) */
+  installationId: string | null
 }
 
 type RouteContext = { params: Promise<Record<string, string>> }
@@ -66,6 +68,7 @@ export async function authenticateMobile(request: NextRequest): Promise<MobileAc
       userId: true,
       revokedAt: true,
       expiresAt: true,
+      installationId: true,
       user: { select: { isActive: true, role: true } },
     },
   })
@@ -74,7 +77,12 @@ export async function authenticateMobile(request: NextRequest): Promise<MobileAc
   if (session.revokedAt || session.expiresAt.getTime() <= Date.now()) throw new MobileApiError('SESSION_REVOKED')
   if (!session.user.isActive) throw new MobileApiError('USER_INACTIVE')
 
-  return { userId: claims.userId, sessionId: claims.sessionId, role: session.user.role }
+  return {
+    userId: claims.userId,
+    sessionId: claims.sessionId,
+    role: session.user.role,
+    installationId: session.installationId,
+  }
 }
 
 export function publicMobileRoute(handler: PublicHandler) {

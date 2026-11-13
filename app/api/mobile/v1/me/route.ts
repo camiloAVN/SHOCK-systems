@@ -1,10 +1,11 @@
 import { prisma } from '@/lib/db/prisma'
+import { getActivation } from '@/lib/mobile/activation'
 import { MobileApiError, mobileOk } from '@/lib/mobile/errors'
 import { authedMobileRoute } from '@/lib/mobile/handler'
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/mobile/v1/me — perfil del usuario del token.
+// GET /api/mobile/v1/me — perfil del usuario del token y su estado de activación.
 // El id sale SIEMPRE del token, nunca de la URL ni del cuerpo.
 export const GET = authedMobileRoute(async (_request, actor) => {
   const user = await prisma.user.findUnique({
@@ -27,5 +28,6 @@ export const GET = authedMobileRoute(async (_request, actor) => {
     ...user,
     // SUPERADMIN tiene todos los permisos sin filas en user_permissions
     isSuperAdmin: user.role === 'SUPERADMIN',
+    activation: await getActivation(actor.userId, actor.installationId),
   })
 })

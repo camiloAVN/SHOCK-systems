@@ -5,6 +5,7 @@ import { hash } from 'bcrypt'
 import { moduleLabels, updateUserSchema, SUPERADMIN_EMAIL } from '@/lib/validations/user'
 import { createAuditLog, getRequestClientInfo } from '@/lib/audit/log'
 import { ZodError } from 'zod'
+import { Prisma } from '@prisma/client'
 
 // Current role of the logged-in user, read from the DB (never trust the JWT role)
 async function getActorRole(session: any): Promise<'SUPERADMIN' | 'ADMIN' | 'USER' | null> {
@@ -96,6 +97,8 @@ export async function GET(
         email: true,
         role: true,
         position: true,
+        cedula: true,
+        phone: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -216,12 +219,22 @@ export async function PUT(
       }
     }
 
+    // Si se actualiza la cédula, verificar que no la tenga otro usuario
+    if (validatedData.cedula && validatedData.cedula !== existingUser.cedula) {
+      const cedulaTaken = await prisma.user.findUnique({ where: { cedula: validatedData.cedula } })
+      if (cedulaTaken && cedulaTaken.id !== id) {
+        return NextResponse.json({ error: 'Ya existe un usuario con esta cedula' }, { status: 400 })
+      }
+    }
+
     // Preparar datos para actualizar
     const updateData: any = {
       ...(validatedData.name && { name: validatedData.name }),
       ...(validatedData.email && { email: validatedData.email.toLowerCase() }),
       ...(validatedData.role && { role: validatedData.role }),
       ...(validatedData.position !== undefined && { position: validatedData.position }),
+      ...(validatedData.cedula !== undefined && { cedula: validatedData.cedula }),
+      ...(validatedData.phone !== undefined && { phone: validatedData.phone }),
       ...(validatedData.isActive !== undefined && { isActive: validatedData.isActive }),
     }
 
@@ -261,6 +274,8 @@ export async function PUT(
         email: true,
         role: true,
         position: true,
+        cedula: true,
+        phone: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -331,6 +346,27 @@ export async function PUT(
       })
     }
 
+    // La cédula identifica al empleado (asistencia, nómina): su cambio queda registrado
+    const cedulaChanged = validatedData.cedula !== undefined && validatedData.cedula !== existingUser.cedula
+    if (cedulaChanged) {
+      await createAuditLog({
+        module: 'usuarios',
+        action: 'USER_CEDULA_CHANGED',
+        entityType: 'user',
+        entityId: user.id,
+        description: `Cedula actualizada para ${user.email}`,
+        metadata: {
+          userId: user.id,
+          userEmail: user.email,
+          previousCedula: existingUser.cedula,
+          newCedula: user.cedula,
+        },
+        performedBy: session.user.id!,
+        ipAddress,
+        userAgent,
+      })
+    }
+
     if (statusChanged) {
       await createAuditLog({
         module: 'usuarios',
@@ -354,7 +390,15 @@ export async function PUT(
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
-        { error: 'Datos invalidos', issues: error.issues },
+        { error: error.issues[0]?.message || 'Datos invalidos', issues: error.issues },
+        { status: 400 }
+      )
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = String(error.meta?.target ?? '')
+      return NextResponse.json(
+        { error: target.includes('cedula') ? 'Ya existe un usuario con esta cedula' : 'Ya existe un usuario con este email' },
         { status: 400 }
       )
     }

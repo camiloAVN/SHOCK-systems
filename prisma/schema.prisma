@@ -38,8 +38,55 @@ model User {
   auditLogs          AuditLog[]
   teamMemberships    TeamMember[]
   mobileSessions     MobileSession[]
+  consentAcceptances ConsentAcceptance[]
+  mobileDevices      MobileDevice[]          @relation("MobileDeviceOwner")
+  activeMobileDevice MobileDevice?           @relation("MobileDeviceActive")
+  unboundDevices     MobileDevice[]          @relation("MobileDeviceUnboundBy")
 
   @@map("users")
+}
+
+// ConsentAcceptance - Constancia de aceptación del consentimiento de datos (app móvil).
+// Guarda la versión y la huella SHA-256 del texto EXACTO que se aceptó.
+model ConsentAcceptance {
+  id             String   @id @default(cuid())
+  userId         String
+  version        String
+  textHash       String   // SHA-256 del texto aceptado
+  acceptedAt     DateTime @default(now())
+  installationId String?
+  ipAddress      String?
+  userAgent      String?  @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, version])
+  @@map("consent_acceptances")
+}
+
+// MobileDevice - Teléfono vinculado a un empleado. Solo puede haber UNO activo por usuario:
+// `activeUserId` vale el id del usuario mientras está activo y es NULL al desvincularlo;
+// su índice único lo garantiza en la base de datos.
+model MobileDevice {
+  id             String    @id @default(cuid())
+  userId         String
+  activeUserId   String?   @unique
+  installationId String
+  platform       String?
+  deviceModel    String?
+  appVersion     String?
+  boundAt        DateTime  @default(now())
+  unboundAt      DateTime?
+  unboundById    String?
+  unboundReason  String?
+
+  user       User  @relation("MobileDeviceOwner", fields: [userId], references: [id], onDelete: Cascade)
+  activeUser User? @relation("MobileDeviceActive", fields: [activeUserId], references: [id], onDelete: Cascade)
+  unboundBy  User? @relation("MobileDeviceUnboundBy", fields: [unboundById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([installationId])
+  @@map("mobile_devices")
 }
 
 // ============================================
