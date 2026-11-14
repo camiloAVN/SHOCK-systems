@@ -31,7 +31,7 @@ npm run db:seed               # Seed demo data (creates superadmin: camilo.varga
 npm run email:dev             # Starts react-email dev server at localhost:3000
 ```
 
-No test framework is configured in this project.
+Tests: `npm test` (vitest, pure logic in `tests/`) and `npm run mobile:smoke` (end-to-end for the mobile API against `npm run dev:local`; see the Mobile API section).
 
 ## Architecture
 

@@ -6,7 +6,8 @@
 // Crea y borra su propio usuario de prueba. Solo corre contra una base LOCAL.
 import fs from 'node:fs'
 import { PrismaClient } from '@prisma/client'
-import { DeleteObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import bcrypt from 'bcrypt'
 import sharp from 'sharp'
 
@@ -438,6 +439,15 @@ async function fase4(user) {
   r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, grayJpeg)
   check('imagen sin rostro -> 422 FACE_NOT_FOUND', r.status === 422 && r.code === 'FACE_NOT_FOUND', `${r.status} ${r.code}`)
   check('...y no se guardó ningún registro', (await prisma.faceEnrollment.count({ where: { userId: user.id } })) === 0)
+  // Dos personas: la misma foto real dos veces, lado a lado
+  const half = await sharp(faceJpeg).resize({ width: 600, height: 800, fit: 'cover' }).toBuffer()
+  const twoFacesJpeg = await sharp({ create: { width: 1200, height: 800, channels: 3, background: '#808080' } })
+    .composite([{ input: half, left: 0, top: 0 }, { input: half, left: 600, top: 0 }])
+    .jpeg({ quality: 80 })
+    .toBuffer()
+  r = await upload(phone.accessToken, (await newAttempt(phone.accessToken)).attemptId, twoFacesJpeg)
+  check('foto con dos personas -> 422 MULTIPLE_FACES', r.status === 422 && r.code === 'MULTIPLE_FACES', `${r.status} ${r.code}`)
+  check('...y tampoco se guardó registro', (await prisma.faceEnrollment.count({ where: { userId: user.id } })) === 0)
 
   a = await newAttempt(phone.accessToken)
   r = await upload(phone.accessToken, a.attemptId, faceJpeg)
@@ -478,6 +488,14 @@ async function fase4(user) {
   check('ver la foto queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'FACE_ENROLLMENT_PHOTO_VIEWED', entityId: second.id, performedBy: admin.id } })))
   const unsigned = await fetch(new URL(w.json.url).origin + new URL(w.json.url).pathname)
   check('la misma foto sin firma NO se puede leer', unsigned.status >= 400, String(unsigned.status))
+  check('la URL firmada de la web dura 5 minutos', new URL(w.json.url).searchParams.get('X-Amz-Expires') === '300', new URL(w.json.url).searchParams.get('X-Amz-Expires'))
+  // Caducidad real: el bucket debe rechazar una firma vencida (se firma a 1 s para no esperar 5 min)
+  const c = r2()
+  const shortUrl = await getSignedUrl(c.s3, new GetObjectCommand({ Bucket: c.bucket, Key: second.imageKey }), { expiresIn: 1 })
+  const fresh = await fetch(shortUrl)
+  await new Promise((ok) => setTimeout(ok, 2500))
+  const expired = await fetch(shortUrl)
+  check('una URL firmada vencida ya no abre la foto', fresh.status === 200 && expired.status === 403, `${fresh.status} -> ${expired.status}`)
 
   const review = (id, body, cookie = adminCookie) => web(`/api/attendance/enrollments/${id}/review`, cookie, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
   w = await review(second.id, { action: 'reject' })
