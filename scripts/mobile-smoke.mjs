@@ -351,8 +351,6 @@ async function fase3(user) {
 
 // Foto con un rostro real (la del dueño de la Fase 0, que se queda en su computador)
 const FACE_IMAGE = process.env.SMOKE_FACE_IMAGE || 'C:/dev/xenith-asistencia/spikes/fase0/scripts/fotos/referencia.jpg'
-// Imagen de más de 1 MB que ya está en el proyecto
-const BIG_IMAGE = 'public/images/ubicaciones/retiro.jpg'
 
 function r2() {
   const { R2_ATT_ACCOUNT_ID, R2_ATT_ACCESS_KEY_ID, R2_ATT_SECRET_ACCESS_KEY, R2_ATT_BUCKET } = process.env
@@ -396,7 +394,9 @@ async function fase4(user) {
   }
   const faceJpeg = fs.readFileSync(FACE_IMAGE)
   const grayJpeg = await sharp({ create: { width: 640, height: 640, channels: 3, background: '#7a7a7a' } }).jpeg({ quality: 80 }).toBuffer()
-  const bigJpeg = fs.readFileSync(BIG_IMAGE)
+  // Ruido aleatorio a calidad máxima: varios MB, más de 1 MB seguro
+  const bigJpeg = await sharp({ create: { width: 2500, height: 2500, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 60 } } }).jpeg({ quality: 100 }).toBuffer()
+  if (bigJpeg.length <= 1024 * 1024) throw new Error('la imagen grande de prueba no supera 1 MB')
   const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#7a7a7a' } }).png().toBuffer()
 
   await resetUser()
