@@ -120,6 +120,7 @@ const markSelect = {
   similarity: true,
   offline: true,
   shift: { select: { id: true, startsAt: true, endsAt: true, assignment: { select: { area: { select: { id: true, name: true, radiusMeters: true } } } } } },
+  review: { select: { decision: true, note: true, createdAt: true } },
 } satisfies Prisma.AttendanceMarkSelect
 
 type MarkRow = Prisma.AttendanceMarkGetPayload<{ select: typeof markSelect }>
@@ -138,6 +139,8 @@ export function serializeMark(m: MarkRow) {
     offline: m.offline,
     area: { id: m.shift.assignment.area.id, name: m.shift.assignment.area.name, radiusMeters: m.shift.assignment.area.radiusMeters },
     shift: { id: m.shift.id, startsAt: m.shift.startsAt.toISOString(), endsAt: m.shift.endsAt.toISOString() },
+    // Decisión del supervisor sobre una marcación en revisión (Fase 7)
+    review: m.review ? { decision: m.review.decision, note: m.review.note, reviewedAt: m.review.createdAt.toISOString() } : null,
   }
 }
 

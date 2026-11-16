@@ -195,6 +195,7 @@ async function main() {
   await fase4(user)
   await fase5(user)
   await fase6(user)
+  await fase7(user)
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -833,6 +834,155 @@ async function fase6(user) {
   check('un área con marcaciones no se puede eliminar -> 409', w.status === 409 && /marcaciones/.test(w.json?.error ?? ''), `${w.status} ${w.json?.error}`)
 }
 
+
+// ───────────────────────── Fase 7: revisión y reportes ─────────────────────────
+
+async function fase7(user) {
+  const DAY = 24 * 3_600_000
+  const json = (method, body) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const admin = await ensureUser(PHASE3_EMAILS.admin, 'ADMIN')
+  const viewer = await ensureUser(PHASE3_EMAILS.admin2, 'ADMIN')
+  const plainCookie = await webLogin(PHASE3_EMAILS.plain)
+  const viewerCookie = await webLogin(PHASE3_EMAILS.admin2)
+  const adminCookie = await webLogin(PHASE3_EMAILS.admin)
+  const fakeAttempt = (userId) =>
+    prisma.livenessAttempt.create({ data: { userId, purpose: 'mark', method: 'device_challenge_v1', steps: ['blink'], expiresAt: new Date(), usedAt: new Date() } })
+  const rawMark = async (userId, shiftId, type, status, officialAt, reasons = []) =>
+    prisma.attendanceMark.create({
+      data: {
+        userId,
+        shiftId,
+        clientMarkId: `smoke7-${Math.random()}`,
+        type,
+        status,
+        reasons,
+        officialAt,
+        latitude: 4.6097,
+        longitude: -74.0817,
+        livenessMethod: 'device_challenge_v1',
+        livenessAttemptId: (await fakeAttempt(userId)).id,
+      },
+    })
+
+  console.log('\n28. Bandeja de revisión')
+  let w = await web('/api/attendance/reviews', plainCookie)
+  check('sin el módulo asistencia_reportes -> 403', w.status === 403, String(w.status))
+  w = await web('/api/attendance/reviews', viewerCookie)
+  const pendingOwn = (w.json?.marks ?? []).filter((m) => m.user.id === user.id)
+  const outOfArea = pendingOwn.find((m) => m.reasons.includes('OUT_OF_AREA'))
+  const lowGps = pendingOwn.find((m) => m.reasons.includes('LOW_GPS_ACCURACY'))
+  check('aparecen las 2 marcaciones en revisión de la Fase 6, con área y referencia', w.status === 200 && !!outOfArea && !!lowGps && outOfArea.area.radiusMeters === 50 && !!outOfArea.referenceEnrollmentId, `${w.status} ${pendingOwn.length}`)
+  check('con permiso de ver: no puede revisar y no se exponen claves de fotos', w.json?.canReview === false && !JSON.stringify(w.json).includes('marks/'))
+  w = await web(`/api/attendance/reviews/${outOfArea?.id}`, viewerCookie, json('POST', { decision: 'APPROVED', note: 'x' }))
+  check('con permiso de ver: aprobar -> 403', w.status === 403, String(w.status))
+  w = await web(`/api/attendance/reviews/${outOfArea?.id}`, adminCookie, json('POST', { decision: 'APPROVED', note: '  ' }))
+  check('sin nota -> 400', w.status === 400, String(w.status))
+  const adminPending = await rawMark(admin.id, outOfArea?.shift.id, 'IN', 'PENDING_REVIEW', new Date(), ['OUT_OF_AREA'])
+  w = await web(`/api/attendance/reviews/${adminPending.id}`, adminCookie, json('POST', { decision: 'APPROVED', note: 'yo mismo' }))
+  check('nadie revisa sus propias marcaciones -> 403', w.status === 403, `${w.status} ${w.json?.error}`)
+  w = await web(`/api/attendance/reviews/${outOfArea?.id}`, adminCookie, json('POST', { decision: 'APPROVED', note: 'Smoke: el evento se movió' }))
+  check('aprobar con nota -> 200 y queda en la bitácora', w.status === 200 && !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_MARK_REVIEWED', entityId: outOfArea?.id } })), `${w.status} ${w.json?.error}`)
+  w = await web(`/api/attendance/reviews/${outOfArea?.id}`, adminCookie, json('POST', { decision: 'REJECTED', note: 'cambio de opinión' }))
+  check('la decisión es definitiva: revisar otra vez -> 409', w.status === 409, String(w.status))
+  w = await web(`/api/attendance/reviews/${lowGps?.id}`, adminCookie, json('POST', { decision: 'REJECTED', note: 'Smoke: no estaba en el lugar' }))
+  check('rechazar con nota -> 200', w.status === 200, String(w.status))
+  const valid = await prisma.attendanceMark.findFirst({ where: { userId: user.id, status: 'VALID' } })
+  w = await web(`/api/attendance/reviews/${valid?.id}`, adminCookie, json('POST', { decision: 'APPROVED', note: 'x' }))
+  check('una marcación válida no se revisa -> 409', w.status === 409, String(w.status))
+  w = await web('/api/attendance/reviews?state=done', viewerCookie)
+  check('pestaña "revisadas": las dos, con la nota y quién decidió', w.json?.marks?.filter((m) => m.user.id === user.id && m.review?.reviewer).length === 2, JSON.stringify(w.json?.marks?.length))
+  const phone = await loginAs('smoke-phone-MARK')
+  const hist = await call('GET', '/marks', { token: phone.accessToken })
+  const seen = hist.data?.marks?.find((m) => m.id === outOfArea?.id)
+  check('la app ve la decisión del supervisor en el historial', seen?.review?.decision === 'APPROVED' && seen.review.note === 'Smoke: el evento se movió', JSON.stringify(seen?.review))
+
+  console.log('\n29. Reporte por persona, área y fechas')
+  const day = (offset) => new Date(Date.now() - 5 * 3_600_000 + offset * DAY).toISOString().slice(0, 10)
+  const at = (d, hm) => new Date(`${d}T${hm}:00-05:00`)
+  const area = await prisma.attendanceArea.create({ data: { name: `${AREA_PREFIX} reporte`, latitude: 4.6097, longitude: -74.0817, radiusMeters: 50 } })
+  const [d2, d3, d4] = [day(-2), day(-3), day(-4)]
+  const assignment = await prisma.attendanceAssignment.create({
+    data: {
+      areaId: area.id,
+      userId: user.id,
+      shifts: {
+        create: [
+          { startsAt: at(d2, '08:00'), endsAt: at(d2, '17:00') },
+          { startsAt: at(d3, '08:00'), endsAt: at(d3, '17:00') },
+          { startsAt: at(d4, '08:00'), endsAt: at(d4, '17:00') },
+        ],
+      },
+    },
+    include: { shifts: { orderBy: { startsAt: 'desc' } } },
+  })
+  const [s2, s3, s4] = assignment.shifts
+  await rawMark(user.id, s2.id, 'IN', 'VALID', at(d2, '08:20'))
+  await rawMark(user.id, s2.id, 'OUT', 'VALID', at(d2, '18:30'))
+  await rawMark(user.id, s4.id, 'IN', 'PENDING_REVIEW', at(d4, '08:00'), ['OUT_OF_AREA'])
+  await rawMark(user.id, s4.id, 'OUT', 'VALID', at(d4, '17:40'))
+  const q = `from=${d4}&to=${d2}&areaId=${area.id}`
+
+  w = await web(`/api/attendance/report?${q}`, plainCookie)
+  check('sin el módulo -> 403', w.status === 403, String(w.status))
+  w = await web(`/api/attendance/report?${q}`, viewerCookie)
+  const byShift = (id) => w.json?.rows?.find((r) => r.shift.id === id)
+  const r2 = byShift(s2.id)
+  check('3 filas (una por turno) para esa área', w.status === 200 && w.json?.rows?.length === 3, `${w.status} ${w.json?.rows?.length} ${w.json?.error}`)
+  check('turno con tardanza: 20 min tarde, 10:10 trabajadas, 1:30 extra por aprobar', r2?.lateMinutes === 20 && r2.workedMinutes === 610 && r2.overtimeMinutes === 90 && r2.overtime.state === 'to_approve', JSON.stringify(r2))
+  check('turno sin marcaciones: ausente', byShift(s3.id)?.status === 'absent')
+  const r4 = byShift(s4.id)
+  check('turno con una marcación en revisión: horas provisionales y extra bloqueada hasta revisar', r4?.pendingReviews === 1 && r4.pendingMinutes === 580 && r4.overtimeMinutes === 40 && r4.overtime.state === 'blocked_by_review', JSON.stringify(r4))
+  const sum = w.json?.summary?.find((s) => s.user.id === user.id)
+  check('resumen por persona: 3 turnos, 1 tardanza, 1 ausencia', sum?.shifts === 3 && sum.lateCount === 1 && sum.absences === 1 && sum.workedMinutes === 610 + 580, JSON.stringify(sum))
+  check('con permiso de ver: no puede decidir horas extra', w.json?.canDecide === false)
+  w = await web(`/api/attendance/report?from=${day(-90)}&to=${d2}`, viewerCookie)
+  check('rango de más de 62 días -> 400', w.status === 400, String(w.status))
+  w = await web(`/api/attendance/report?from=${d2}&to=${d4}`, viewerCookie)
+  check('desde después de hasta -> 400', w.status === 400, String(w.status))
+  const csvRes = await fetch(`${BASE}/api/attendance/report?${q}&format=csv`, { headers: { cookie: viewerCookie } })
+  const csvBytes = new Uint8Array(await csvRes.arrayBuffer())
+  const csv = new TextDecoder('utf-8', { ignoreBOM: true }).decode(csvBytes)
+  const csvRow = csv.split('\r\n').find((l) => l.startsWith(d2))
+  check(
+    'CSV para Excel: separador ";", BOM y los mismos números',
+    csvRes.status === 200 && /text\/csv/.test(csvRes.headers.get('content-type') ?? '') && csv.charCodeAt(0) === 0xfeff && csv.includes('Tardanza (min)') && csvRow?.split(';')[14] === '20',
+    `${csvRes.status} ${csvRow}`
+  )
+  check('...la exportación queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_REPORT_EXPORTED', performedBy: viewer.id } })))
+
+  console.log('\n30. Aprobación de horas extra')
+  const ot = (cookie, body) => web('/api/attendance/overtime', cookie, json('POST', { userId: user.id, shiftId: s2.id, ...body }))
+  w = await ot(viewerCookie, { decision: 'APPROVED' })
+  check('con permiso de ver: aprobar -> 403', w.status === 403, String(w.status))
+  w = await ot(adminCookie, { userId: admin.id, decision: 'APPROVED' })
+  check('nadie aprueba sus propias horas extra -> 403', w.status === 403, String(w.status))
+  w = await ot(adminCookie, { shiftId: s4.id, decision: 'APPROVED' })
+  check('con marcaciones en revisión en el turno -> 409', w.status === 409, `${w.status} ${w.json?.error}`)
+  w = await ot(adminCookie, { decision: 'APPROVED', minutes: 120 })
+  check('aprobar más minutos de los calculados -> 400', w.status === 400, String(w.status))
+  w = await ot(adminCookie, { decision: 'APPROVED', minutes: 60 })
+  check('aprobar menos minutos sin explicar -> 400', w.status === 400, String(w.status))
+  w = await ot(adminCookie, { decision: 'APPROVED' })
+  check(
+    'aprobar todo -> 200 (90 min) y queda en la bitácora',
+    w.status === 200 && w.json?.approvedMinutes === 90 && !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_OVERTIME_DECIDED', performedBy: admin.id } })),
+    `${w.status} ${w.json?.error}`
+  )
+  w = await web(`/api/attendance/report?${q}`, viewerCookie)
+  check('el reporte la muestra aprobada', byShift(s2.id)?.overtime.state === 'approved' && byShift(s2.id)?.overtime.approvedMinutes === 90 && w.json.summary.find((s) => s.user.id === user.id)?.overtimeApprovedMinutes === 90)
+  w = await ot(adminCookie, { decision: 'REJECTED' })
+  check('rechazar sin nota -> 400', w.status === 400, String(w.status))
+  w = await ot(adminCookie, { decision: 'REJECTED', note: 'Smoke: no autorizadas' })
+  check('se puede cambiar la decisión: rechazada -> 200', w.status === 200, String(w.status))
+  w = await web(`/api/attendance/report?${q}`, viewerCookie)
+  check('...el reporte la muestra rechazada, 0 aprobadas', byShift(s2.id)?.overtime.state === 'rejected' && byShift(s2.id)?.overtime.approvedMinutes === 0)
+  const s4in = await prisma.attendanceMark.findFirst({ where: { shiftId: s4.id, status: 'PENDING_REVIEW' } })
+  await web(`/api/attendance/reviews/${s4in?.id}`, adminCookie, json('POST', { decision: 'REJECTED', note: 'Smoke: fuera del lugar' }))
+  w = await web(`/api/attendance/report?${q}`, viewerCookie)
+  const r4b = byShift(s4.id)
+  check('entrada rechazada por el supervisor: el par no suma horas ni extra', r4b?.workedMinutes === 0 && r4b.overtimeMinutes === 0 && r4b.rejectedMarks === 1 && r4b.status === 'absent', JSON.stringify(r4b))
+}
+
 async function cleanupPhase6() {
   const users = await prisma.user.findMany({ where: { email: { in: [EMAIL, ...Object.values(PHASE3_EMAILS)] } }, select: { id: true } })
   const ids = users.map((u) => u.id)
@@ -840,8 +990,12 @@ async function cleanupPhase6() {
   const withPhoto = await prisma.attendanceMark.findMany({ where: { userId: { in: ids }, selfieKey: { not: null } }, select: { selfieKey: true } })
   if (c) for (const { selfieKey } of withPhoto) await c.s3.send(new DeleteObjectCommand({ Bucket: c.bucket, Key: selfieKey })).catch(() => {})
   await prisma.attendanceShiftLock.deleteMany({ where: { userId: { in: ids } } })
+  await prisma.attendanceMarkReview.deleteMany({ where: { mark: { userId: { in: ids } } } })
+  await prisma.attendanceOvertimeDecision.deleteMany({ where: { userId: { in: ids } } })
   await prisma.attendanceMark.deleteMany({ where: { userId: { in: ids } } })
-  await prisma.auditLog.deleteMany({ where: { entityType: { in: ['attendance_mark', 'attendance_shift_lock'] }, performedBy: { in: ids } } })
+  await prisma.auditLog.deleteMany({
+    where: { entityType: { in: ['attendance_mark', 'attendance_shift_lock', 'attendance_overtime', 'attendance_report'] }, performedBy: { in: ids } },
+  })
 }
 
 async function cleanupPhase5() {

@@ -90,6 +90,18 @@ export const ATTENDANCE_CONFIG = {
     listAheadMs: 30 * DAY,
   },
 
+  /** Revisión y reportes (Fase 7) */
+  reports: {
+    /** Salir antes del fin planeado cuenta como salida anticipada solo si supera esto */
+    earlyLeaveToleranceMs: 5 * MINUTE,
+    /** Horas extra = tiempo trabajado después del fin planeado; solo cuentan si llegan a este mínimo */
+    overtimeMinMs: 15 * MINUTE,
+    /** Rango máximo de un reporte (días) */
+    maxRangeDays: 62,
+    /** Revisiones ya hechas que se muestran en la bandeja */
+    reviewedHistoryDays: 30,
+  },
+
   /**
    * Zona horaria de la empresa. Colombia no tiene horario de verano, así que el desfase es fijo;
    * las fechas se guardan en UTC y se muestran / capturan en hora de Bogotá.

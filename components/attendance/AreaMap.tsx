@@ -29,8 +29,12 @@ type Props = {
   editor?: { center: LatLng | null; radiusMeters: number; onCenterChange: (center: LatLng) => void; readOnly?: boolean }
   /** Cambia este número para volver a encuadrar el mapa (p. ej. tras pegar coordenadas) */
   fitKey?: number
+  /** Puntos fijos (p. ej. dónde se hizo una marcación); entran en el encuadre */
+  points?: MapPoint[]
   className?: string
 }
+
+export type MapPoint = { latitude: number; longitude: number; color?: string; title?: string }
 
 function toFeatures(circles: MapCircle[]): GeoJSON.FeatureCollection {
   return {
@@ -50,10 +54,11 @@ function boundsOf(circles: MapCircle[]): LngLatBounds | null {
   return b
 }
 
-export default function AreaMap({ styleUrl, circles, onCircleClick, editor, fitKey = 0, className }: Props) {
+export default function AreaMap({ styleUrl, circles, onCircleClick, editor, fitKey = 0, points, className }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapLibreMap | null>(null)
   const marker = useRef<Marker | null>(null)
+  const pointMarkers = useRef<Marker[]>([])
   const loaded = useRef(false)
   // Tareas que esperan a que el mapa termine de cargar (se guarda la última de cada tipo)
   const pending = useRef<Record<string, () => void>>({})
@@ -159,13 +164,35 @@ export default function AreaMap({ styleUrl, circles, onCircleClick, editor, fitK
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drawnKey])
 
+  // Puntos fijos
+  const pointsKey = JSON.stringify(points ?? [])
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    for (const pm of pointMarkers.current) pm.remove()
+    pointMarkers.current = (points ?? []).map((p) => {
+      const pm = new Marker({ color: p.color ?? '#38bdf8' }).setLngLat([p.longitude, p.latitude]).addTo(m)
+      if (p.title) pm.getElement().title = p.title
+      return pm
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsKey])
+  useEffect(
+    () => () => {
+      for (const pm of pointMarkers.current) pm.remove()
+      pointMarkers.current = []
+    },
+    []
+  )
+
   // Encuadrar: al cargar con datos y cada vez que cambie fitKey
-  const hasData = drawn.length > 0
+  const hasData = drawn.length > 0 || (points?.length ?? 0) > 0
   useEffect(() => {
     const m = map.current
     if (!m || !hasData) return
     const fit = () => {
-      const b = boundsOf(drawn)
+      const b = boundsOf(drawn) ?? (points?.length ? new LngLatBounds() : null)
+      if (b) for (const p of points ?? []) b.extend([p.longitude, p.latitude])
       if (b) m.fitBounds(b, { padding: 48, maxZoom: 17, duration: 600 })
     }
     whenLoaded('fit', fit)

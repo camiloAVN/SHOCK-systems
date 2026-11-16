@@ -20,6 +20,8 @@ import {
   ScanFace,
   MapPinned,
   ShieldAlert,
+  ClipboardCheck,
+  BarChart3,
   LucideIcon,
 } from 'lucide-react'
 import { SystemModule } from '@/lib/validations/user'
@@ -111,6 +113,20 @@ export const navSections: NavSection[] = [
         hint: 'Aprobar las fotos de referencia de la app',
       },
       {
+        name: 'Revisión',
+        href: '/dashboard/asistencia/revision',
+        icon: ClipboardCheck,
+        modules: ['asistencia_reportes'],
+        hint: 'Aprobar o rechazar marcaciones fuera del área',
+      },
+      {
+        name: 'Reportes',
+        href: '/dashboard/asistencia/reportes',
+        icon: BarChart3,
+        modules: ['asistencia_reportes'],
+        hint: 'Horas, tardanzas y horas extra; exportar a Excel',
+      },
+      {
         name: 'Turnos bloqueados',
         href: '/dashboard/asistencia/bloqueos',
         icon: ShieldAlert,
@@ -167,6 +183,8 @@ export const segmentLabels: Record<string, string> = {
   registros: 'Registros faciales',
   areas: 'Áreas',
   bloqueos: 'Turnos bloqueados',
+  revision: 'Revisión',
+  reportes: 'Reportes',
   nueva: 'Nueva',
   nuevo: 'Nuevo',
   editar: 'Editar',

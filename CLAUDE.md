@@ -225,4 +225,11 @@ Backend for the Expo attendance app (repo at `C:\dev\xenith-asistencia`, design 
 - `GET /assignments` includes per-shift `marking` (next type, open entry, locked, attempts left) and recent shifts with an open entry.
 - New error codes: `ENROLLMENT_REQUIRED`, `SHIFT_NOT_ASSIGNED`, `SHIFT_LOCKED`, `MARK_WINDOW_CLOSED`.
 - Web `/dashboard/asistencia/bloqueos` (`/api/attendance/locks*`, `/api/attendance/marks/[id]/photo`): failed selfies next to the reference photo; unlocking needs `asistencia_reportes` edit and a note, and **nobody can unlock their own shift**. Audit actions `ATTENDANCE_SHIFT_UNLOCKED`, `ATTENDANCE_MARK_PHOTO_VIEWED`.
-- Not done yet: review inbox for PENDING_REVIEW and reports (Phase 7), offline queue (Phase 8), 90-day selfie deletion (Phase 9).
+- Not done yet: offline queue (Phase 8), 90-day selfie deletion (Phase 9).
+
+### Review & reports (Phase 7)
+- Models `AttendanceMarkReview` (one final decision per PENDING_REVIEW mark, note required; the mark keeps its status) and `AttendanceOvertimeDecision` (per user+shift, `computedMinutes` snapshot + `approvedMinutes`, re-decidable; SQL CHECK approved ≤ computed). Migration `20261117000000_add_attendance_reviews`.
+- Pure report math in `lib/attendance/report.ts` (tests in `tests/attendance/report.test.ts`): pairs IN→OUT of VALID/PENDING_REVIEW marks; a supervisor-rejected mark makes its pair count 0; lateness > `lateToleranceMs` (full delay); early leave > `reports.earlyLeaveToleranceMs`; overtime = worked time AFTER planned end, only if ≥ `reports.overtimeMinMs`. No night/holiday surcharges (owner's decision). DB queries in `lib/attendance/reports.ts`; people per shift = assigned user or CURRENT team members ∪ anyone who marked.
+- Web `/dashboard/asistencia/revision` (`/api/attendance/reviews*`) and `/dashboard/asistencia/reportes` (`/api/attendance/report[?format=csv]`, `/report/options`, `POST /api/attendance/overtime`). View = `asistencia_reportes` view; deciding = edit. Nobody reviews their own marks or approves their own overtime. Overtime can't be decided while the shift has unreviewed marks. CSV: `;` separator + UTF-8 BOM, formula-injection guarded (`lib/attendance/report-csv.ts`). Audit: `ATTENDANCE_MARK_REVIEWED`, `ATTENDANCE_OVERTIME_DECIDED`, `ATTENDANCE_REPORT_EXPORTED`.
+- `components/attendance/ProtectedPhoto.tsx` (signed-URL photo on click) is shared by the locks and review pages; `AreaMap` accepts `points` (markers).
+- Mobile `GET marks` includes `review` (decision, note, reviewedAt).

@@ -34,24 +34,27 @@ model User {
   inventoryMovements           InventoryMovement[]
   bulkMovements                BulkMovement[]
   permissions                  UserPermission[]
-  assignedTasks                Task[]                 @relation("TaskAssignee")
+  assignedTasks                Task[]                       @relation("TaskAssignee")
   auditLogs                    AuditLog[]
   teamMemberships              TeamMember[]
   mobileSessions               MobileSession[]
   consentAcceptances           ConsentAcceptance[]
-  mobileDevices                MobileDevice[]         @relation("MobileDeviceOwner")
-  activeMobileDevice           MobileDevice?          @relation("MobileDeviceActive")
-  unboundDevices               MobileDevice[]         @relation("MobileDeviceUnboundBy")
-  faceEnrollments              FaceEnrollment[]       @relation("FaceEnrollmentOwner")
-  activeFaceEnrollment         FaceEnrollment?        @relation("FaceEnrollmentActive")
-  reviewedEnrollments          FaceEnrollment[]       @relation("FaceEnrollmentReviewer")
+  mobileDevices                MobileDevice[]               @relation("MobileDeviceOwner")
+  activeMobileDevice           MobileDevice?                @relation("MobileDeviceActive")
+  unboundDevices               MobileDevice[]               @relation("MobileDeviceUnboundBy")
+  faceEnrollments              FaceEnrollment[]             @relation("FaceEnrollmentOwner")
+  activeFaceEnrollment         FaceEnrollment?              @relation("FaceEnrollmentActive")
+  reviewedEnrollments          FaceEnrollment[]             @relation("FaceEnrollmentReviewer")
   livenessAttempts             LivenessAttempt[]
-  attendanceAssignments        AttendanceAssignment[] @relation("AttendanceAssignmentUser")
-  createdAttendanceAreas       AttendanceArea[]       @relation("AttendanceAreaCreator")
-  createdAttendanceAssignments AttendanceAssignment[] @relation("AttendanceAssignmentCreator")
-  attendanceMarks              AttendanceMark[]       @relation("AttendanceMarkUser")
-  attendanceShiftLocks         AttendanceShiftLock[]  @relation("AttendanceShiftLockUser")
-  unlockedShiftLocks           AttendanceShiftLock[]  @relation("AttendanceShiftLockUnlocker")
+  attendanceAssignments        AttendanceAssignment[]       @relation("AttendanceAssignmentUser")
+  createdAttendanceAreas       AttendanceArea[]             @relation("AttendanceAreaCreator")
+  createdAttendanceAssignments AttendanceAssignment[]       @relation("AttendanceAssignmentCreator")
+  attendanceMarks              AttendanceMark[]             @relation("AttendanceMarkUser")
+  attendanceShiftLocks         AttendanceShiftLock[]        @relation("AttendanceShiftLockUser")
+  unlockedShiftLocks           AttendanceShiftLock[]        @relation("AttendanceShiftLockUnlocker")
+  reviewedAttendanceMarks      AttendanceMarkReview[]       @relation("AttendanceMarkReviewer")
+  overtimeDecisions            AttendanceOvertimeDecision[] @relation("AttendanceOvertimeUser")
+  decidedOvertime              AttendanceOvertimeDecision[] @relation("AttendanceOvertimeReviewer")
 
   @@map("users")
 }
@@ -114,9 +117,10 @@ model AttendanceShift {
   endsAt       DateTime
   createdAt    DateTime @default(now())
 
-  assignment AttendanceAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment AttendanceAssignment         @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   marks      AttendanceMark[]
   locks      AttendanceShiftLock[]
+  overtime   AttendanceOvertimeDecision[]
 
   @@index([assignmentId])
   @@index([endsAt])
@@ -167,9 +171,10 @@ model AttendanceMark {
   offline           Boolean              @default(false)
   createdAt         DateTime             @default(now())
 
-  user            User            @relation("AttendanceMarkUser", fields: [userId], references: [id], onDelete: Restrict)
-  shift           AttendanceShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
-  livenessAttempt LivenessAttempt @relation(fields: [livenessAttemptId], references: [id], onDelete: Restrict)
+  user            User                  @relation("AttendanceMarkUser", fields: [userId], references: [id], onDelete: Restrict)
+  shift           AttendanceShift       @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  livenessAttempt LivenessAttempt       @relation(fields: [livenessAttemptId], references: [id], onDelete: Restrict)
+  review          AttendanceMarkReview?
 
   @@unique([userId, clientMarkId])
   @@index([shiftId, userId, officialAt])
@@ -1026,4 +1031,54 @@ model ItemGroupItem {
   @@index([groupId])
   @@index([inventoryItemId])
   @@map("item_group_items")
+}
+
+// ─── Asistencia: revisión y horas extra (Fase 7) ───
+
+enum AttendanceReviewDecision {
+  APPROVED
+  REJECTED
+}
+
+// Decisión de un supervisor sobre una marcación PENDING_REVIEW. Una sola por marcación y
+// definitiva. La marcación conserva su estado original; el reporte usa esta decisión
+// (rechazada = el par entrada/salida no suma horas).
+model AttendanceMarkReview {
+  id         String                   @id @default(cuid())
+  markId     String                   @unique
+  decision   AttendanceReviewDecision
+  note       String                   @db.Text
+  reviewerId String?
+  createdAt  DateTime                 @default(now())
+
+  mark     AttendanceMark @relation(fields: [markId], references: [id], onDelete: Restrict)
+  reviewer User?          @relation("AttendanceMarkReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("attendance_mark_reviews")
+}
+
+// Aprobación de horas extra de una persona en un turno. Se puede volver a decidir (p. ej. si
+// cambian las marcaciones); cada decisión queda en la bitácora.
+model AttendanceOvertimeDecision {
+  id              String                   @id @default(cuid())
+  userId          String
+  shiftId         String
+  decision        AttendanceReviewDecision
+  // Minutos extra calculados cuando se decidió (si cambian, hay que volver a decidir)
+  computedMinutes Int
+  // Minutos aprobados (0 si se rechaza; puede ser menos que los calculados)
+  approvedMinutes Int
+  note            String?                  @db.Text
+  reviewerId      String?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  user     User            @relation("AttendanceOvertimeUser", fields: [userId], references: [id], onDelete: Restrict)
+  shift    AttendanceShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  reviewer User?           @relation("AttendanceOvertimeReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, shiftId])
+  @@index([shiftId])
+  @@map("attendance_overtime_decisions")
 }

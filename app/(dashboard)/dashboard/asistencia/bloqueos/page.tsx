@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Eye, IdCard, LockOpen, MapPinned, RefreshCw, ShieldAlert } from 'lucide-react'
+import { IdCard, LockOpen, MapPinned, RefreshCw, ShieldAlert } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Textarea } from '@/components/ui/Textarea'
+import { ProtectedPhoto } from '@/components/attendance/ProtectedPhoto'
 import { ATTENDANCE_CONFIG } from '@/lib/attendance/config'
 import { describe } from '@/lib/attendance/shifts'
 
@@ -18,41 +19,6 @@ type Lock = {
   shift: { id: string; startsAt: string; endsAt: string }
   referenceEnrollmentId: string | null
   attempts: Attempt[]
-}
-
-/** Foto bajo demanda: se pide una URL firmada (5 min) al tocarla; cada vista queda en la bitácora. */
-function Photo({ url, label }: { url: string | null; label: string }) {
-  const [src, setSrc] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  if (!url) return <div className="flex h-40 w-32 items-center justify-center rounded-xl border border-white/10 bg-black/30 px-2 text-center text-xs text-gray-500">Sin foto</div>
-  if (!src) {
-    return (
-      <button
-        type="button"
-        onClick={async () => {
-          setLoading(true)
-          setError(null)
-          try {
-            const r = await fetch(url)
-            const body = await r.json()
-            if (!r.ok) throw new Error(body.error || 'No se pudo cargar')
-            setSrc(body.url)
-          } catch (e: any) {
-            setError(e.message)
-          } finally {
-            setLoading(false)
-          }
-        }}
-        className="flex h-40 w-32 flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-black/30 px-2 text-center text-xs text-gray-400 hover:border-orange-500/40 hover:text-orange-300"
-      >
-        <Eye className="h-5 w-5" />
-        {loading ? 'Cargando…' : error ?? label}
-      </button>
-    )
-  }
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={label} className="h-40 w-32 rounded-xl border border-white/10 object-cover" onError={() => setSrc(null)} />
 }
 
 const REASON: Record<string, string> = { FACE_MISMATCH: 'rostro no coincide', NO_FACE: 'sin rostro en la foto' }
@@ -161,12 +127,12 @@ export default function ShiftLocksPage() {
 
               <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
                 <div className="shrink-0 space-y-1">
-                  <Photo url={l.referenceEnrollmentId ? `/api/attendance/enrollments/${l.referenceEnrollmentId}/photo` : null} label="Ver referencia" />
+                  <ProtectedPhoto url={l.referenceEnrollmentId ? `/api/attendance/enrollments/${l.referenceEnrollmentId}/photo` : null} label="Ver referencia" />
                   <p className="text-center text-xs font-medium text-green-300">Foto aprobada</p>
                 </div>
                 {l.attempts.map((a) => (
                   <div key={a.id} className="shrink-0 space-y-1">
-                    <Photo url={a.hasPhoto ? `/api/attendance/marks/${a.id}/photo` : null} label="Ver intento" />
+                    <ProtectedPhoto url={a.hasPhoto ? `/api/attendance/marks/${a.id}/photo` : null} label="Ver intento" />
                     <p className="w-32 text-center text-xs text-gray-400">
                       {describe(new Date(a.officialAt)).split(', ')[1]} · {a.similarity !== null ? `${Math.round(a.similarity)} %` : a.reasons.map((r) => REASON[r] ?? r).join(', ')}
                     </p>

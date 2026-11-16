@@ -12,4 +12,4 @@ export const AreaMapLazy = dynamic(() => import('./AreaMap'), {
   ),
 })
 
-export type { MapCircle } from './AreaMap'
+export type { MapCircle, MapPoint } from './AreaMap'
