@@ -17,45 +17,113 @@ model User {
   email         String    @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // For credentials provider
+  password      String? // For credentials provider
   role          UserRole  @default(USER)
-  position      String?   // Cargo/puesto del usuario
+  position      String? // Cargo/puesto del usuario
   cedula        String?   @unique // Documento de identidad del empleado
-  phone         String?   // Teléfono del empleado
+  phone         String? // Teléfono del empleado
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  accounts           Account[]
-  sessions           Session[]
-  projects           Project[]
-  quotations         Quotation[]
-  inventoryMovements InventoryMovement[]
-  bulkMovements      BulkMovement[]
-  permissions        UserPermission[]
-  assignedTasks      Task[]    @relation("TaskAssignee")
-  auditLogs          AuditLog[]
-  teamMemberships    TeamMember[]
-  mobileSessions     MobileSession[]
-  consentAcceptances ConsentAcceptance[]
-  mobileDevices      MobileDevice[]          @relation("MobileDeviceOwner")
-  activeMobileDevice MobileDevice?           @relation("MobileDeviceActive")
-  unboundDevices     MobileDevice[]          @relation("MobileDeviceUnboundBy")
-  faceEnrollments    FaceEnrollment[]        @relation("FaceEnrollmentOwner")
-  activeFaceEnrollment FaceEnrollment?       @relation("FaceEnrollmentActive")
-  reviewedEnrollments FaceEnrollment[]       @relation("FaceEnrollmentReviewer")
-  livenessAttempts   LivenessAttempt[]
+  accounts                     Account[]
+  sessions                     Session[]
+  projects                     Project[]
+  quotations                   Quotation[]
+  inventoryMovements           InventoryMovement[]
+  bulkMovements                BulkMovement[]
+  permissions                  UserPermission[]
+  assignedTasks                Task[]                 @relation("TaskAssignee")
+  auditLogs                    AuditLog[]
+  teamMemberships              TeamMember[]
+  mobileSessions               MobileSession[]
+  consentAcceptances           ConsentAcceptance[]
+  mobileDevices                MobileDevice[]         @relation("MobileDeviceOwner")
+  activeMobileDevice           MobileDevice?          @relation("MobileDeviceActive")
+  unboundDevices               MobileDevice[]         @relation("MobileDeviceUnboundBy")
+  faceEnrollments              FaceEnrollment[]       @relation("FaceEnrollmentOwner")
+  activeFaceEnrollment         FaceEnrollment?        @relation("FaceEnrollmentActive")
+  reviewedEnrollments          FaceEnrollment[]       @relation("FaceEnrollmentReviewer")
+  livenessAttempts             LivenessAttempt[]
+  attendanceAssignments        AttendanceAssignment[] @relation("AttendanceAssignmentUser")
+  createdAttendanceAreas       AttendanceArea[]       @relation("AttendanceAreaCreator")
+  createdAttendanceAssignments AttendanceAssignment[] @relation("AttendanceAssignmentCreator")
 
   @@map("users")
 }
 
+// ─── Asistencia: áreas, asignaciones y turnos (Fase 5) ───
+
+// Área donde se puede marcar: un círculo (centro + radio en metros). Solo se edita en la web.
+model AttendanceArea {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?  @db.Text // Dirección o indicaciones para llegar
+  latitude     Float
+  longitude    Float
+  radiusMeters Int
+  isActive     Boolean  @default(true)
+  projectId    String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project     Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy   User?                  @relation("AttendanceAreaCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignments AttendanceAssignment[]
+
+  @@index([isActive])
+  @@index([projectId])
+  @@map("attendance_areas")
+}
+
+// Asignación de un área a UNA persona o a UN equipo (exactamente uno: CHECK en la migración).
+// La pertenencia a un equipo se evalúa con la hora de la marcación.
+model AttendanceAssignment {
+  id          String   @id @default(cuid())
+  areaId      String
+  userId      String?
+  teamId      String?
+  notes       String?  @db.Text
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  area      AttendanceArea    @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  user      User?             @relation("AttendanceAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  team      Team?             @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation("AttendanceAssignmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  shifts    AttendanceShift[]
+
+  @@index([areaId])
+  @@index([userId])
+  @@index([teamId])
+  @@map("attendance_assignments")
+}
+
+// Turno: horario PLANEADO (inicio y fin en UTC). La ventana de marcación se calcula con
+// lib/attendance/config.ts (shifts.markBeforeStartMs / markAfterEndMs).
+model AttendanceShift {
+  id           String   @id @default(cuid())
+  assignmentId String
+  startsAt     DateTime
+  endsAt       DateTime
+  createdAt    DateTime @default(now())
+
+  assignment AttendanceAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@index([endsAt])
+  @@map("attendance_shifts")
+}
+
 enum FaceEnrollmentStatus {
-  PENDING    // Enviado, esperando revisión
-  APPROVED   // Foto de referencia vigente
-  REJECTED   // Rechazado por un revisor (puede volver a intentarlo)
+  PENDING // Enviado, esperando revisión
+  APPROVED // Foto de referencia vigente
+  REJECTED // Rechazado por un revisor (puede volver a intentarlo)
   SUPERSEDED // Reemplazado por un envío posterior
-  REVOKED    // Anulado por un revisor después de aprobado
+  REVOKED // Anulado por un revisor después de aprobado
 }
 
 // FaceEnrollment - Registro facial (foto de referencia) del empleado.
@@ -67,12 +135,12 @@ model FaceEnrollment {
   userId            String
   activeUserId      String?              @unique
   status            FaceEnrollmentStatus @default(PENDING)
-  imageKey          String?              // NULL cuando la foto ya se borró del bucket
+  imageKey          String? // NULL cuando la foto ya se borró del bucket
   imageBytes        Int?
-  livenessMethod    String               // p. ej. "device_challenge_v1"
+  livenessMethod    String // p. ej. "device_challenge_v1"
   livenessAttemptId String               @unique
   challengeSteps    String[]
-  quality           Json?                // Métricas de DetectFaces usadas para aceptar la foto
+  quality           Json? // Métricas de DetectFaces usadas para aceptar la foto
   installationId    String?
   submittedAt       DateTime             @default(now())
   reviewedAt        DateTime?
@@ -95,8 +163,8 @@ model FaceEnrollment {
 model LivenessAttempt {
   id        String    @id @default(cuid())
   userId    String
-  purpose   String    // "enrollment" (más adelante también "clock")
-  method    String    // "device_challenge_v1"; con Face Liveness, el id de la sesión de AWS
+  purpose   String // "enrollment" (más adelante también "clock")
+  method    String // "device_challenge_v1"; con Face Liveness, el id de la sesión de AWS
   steps     String[]
   expiresAt DateTime
   usedAt    DateTime?
@@ -115,7 +183,7 @@ model ConsentAcceptance {
   id             String   @id @default(cuid())
   userId         String
   version        String
-  textHash       String   // SHA-256 del texto aceptado
+  textHash       String // SHA-256 del texto aceptado
   acceptedAt     DateTime @default(now())
   installationId String?
   ipAddress      String?
@@ -163,10 +231,10 @@ model MobileSession {
   refreshTokenHash    String    @unique
   previousTokenHash   String?   @unique // Token anterior, válido un margen corto tras rotar
   rotatedAt           DateTime? // Momento de la primera rotación del token anterior
-  passwordFingerprint String    // Huella de la contraseña vigente al iniciar sesión
+  passwordFingerprint String // Huella de la contraseña vigente al iniciar sesión
   expiresAt           DateTime
   revokedAt           DateTime?
-  revokedReason       String?   // logout, refresh_reuse, password_changed, user_inactive
+  revokedReason       String? // logout, refresh_reuse, password_changed, user_inactive
   lastUsedAt          DateTime  @default(now())
 
   // Datos informativos del dispositivo (la vinculación estricta es otra tabla, fase posterior)
@@ -205,11 +273,12 @@ model Team {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?  @db.Text
-  color       String?  // Color de acento (hex)
+  color       String? // Color de acento (hex)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members TeamMember[]
+  members               TeamMember[]
+  attendanceAssignments AttendanceAssignment[]
 
   @@map("teams")
 }
@@ -218,7 +287,7 @@ model TeamMember {
   id               String   @id @default(cuid())
   teamId           String
   userId           String
-  role             String?  // Rol dentro del equipo (ej. "Jefe de producción")
+  role             String? // Rol dentro del equipo (ej. "Jefe de producción")
   responsibilities String?  @db.Text // Labores / responsabilidades
   isLead           Boolean  @default(false)
   order            Int      @default(0)
@@ -236,10 +305,10 @@ model TeamMember {
 // AuditLog - Registro de auditoria para acciones administrativas criticas
 model AuditLog {
   id          String   @id @default(cuid())
-  module      String   // Modulo funcional: usuarios, inventario, etc.
-  action      String   // Tipo de accion: ROLE_CHANGED, USER_CREATED, etc.
-  entityType  String   // Tipo de entidad afectada: user, permission, etc.
-  entityId    String?  // ID de la entidad afectada (si aplica)
+  module      String // Modulo funcional: usuarios, inventario, etc.
+  action      String // Tipo de accion: ROLE_CHANGED, USER_CREATED, etc.
+  entityType  String // Tipo de entidad afectada: user, permission, etc.
+  entityId    String? // ID de la entidad afectada (si aplica)
   description String   @db.Text
   metadata    Json?
   ipAddress   String?
@@ -262,7 +331,7 @@ model AuditLog {
 model UserPermission {
   id        String   @id @default(cuid())
   userId    String
-  module    String   // Nombre del modulo: dashboard, proyectos, clientes, etc.
+  module    String // Nombre del modulo: dashboard, proyectos, clientes, etc.
   canView   Boolean  @default(false)
   canEdit   Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -329,9 +398,9 @@ model Client {
   address   String?
   city      String?
   country   String?
-  nit       String?  // NIT o documento de identificacion
+  nit       String? // NIT o documento de identificacion
   notes     String?  @db.Text
-  rutUrl    String?  // URL del archivo RUT (para futuro)
+  rutUrl    String? // URL del archivo RUT (para futuro)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -360,10 +429,11 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   // Relations
-  client       Client      @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  assignedUser User        @relation(fields: [assignedTo], references: [id], onDelete: Restrict)
-  quotations   Quotation[]
-  tasks        Task[]
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  assignedUser    User             @relation(fields: [assignedTo], references: [id], onDelete: Restrict)
+  quotations      Quotation[]
+  tasks           Task[]
+  attendanceAreas AttendanceArea[]
 
   @@index([clientId])
   @@index([assignedTo])
@@ -431,7 +501,7 @@ model Quotation {
 model QuotationItem {
   id              String   @id @default(cuid())
   quotationId     String
-  inventoryItemId String?  // Optional link to inventory item
+  inventoryItemId String? // Optional link to inventory item
   description     String
   quantity        Int
   unitPrice       Decimal  @db.Decimal(10, 2)
@@ -454,7 +524,7 @@ model QuotationGroup {
   id          String   @id @default(cuid())
   quotationId String
   groupId     String
-  name        String   // Nombre personalizado (puede ser diferente al original)
+  name        String // Nombre personalizado (puede ser diferente al original)
   description String?  @db.Text
   unitPrice   Decimal  @db.Decimal(10, 2) // Precio editable del grupo
   quantity    Int      @default(1)
@@ -474,11 +544,11 @@ model QuotationGroup {
 
 // Enums
 enum ProjectStatus {
-  PROSPECT     // Prospecto
-  IN_PROGRESS  // En progreso
-  ON_HOLD      // En pausa
-  COMPLETED    // Completado
-  CANCELLED    // Cancelado
+  PROSPECT // Prospecto
+  IN_PROGRESS // En progreso
+  ON_HOLD // En pausa
+  COMPLETED // Completado
+  CANCELLED // Cancelado
 }
 
 enum Priority {
@@ -495,17 +565,17 @@ enum TaskStatus {
 }
 
 enum QuotationStatus {
-  DRAFT    // Borrador
-  SENT     // Enviada
+  DRAFT // Borrador
+  SENT // Enviada
   ACCEPTED // Aceptada
   REJECTED // Rechazada
-  EXPIRED  // Expirada
+  EXPIRED // Expirada
 }
 
 enum UserRole {
   SUPERADMIN // Solo camilo.vargas@xenith.com.co
-  ADMIN      // Administradores
-  USER       // Usuarios normales
+  ADMIN // Administradores
+  USER // Usuarios normales
 }
 
 // =============================================
@@ -518,22 +588,22 @@ enum ProductStatus {
 }
 
 enum InventoryStatus {
-  IN          // En bodega
-  OUT         // Afuera (alquilado)
+  IN // En bodega
+  OUT // Afuera (alquilado)
   MAINTENANCE // En reparación
-  LOST        // No localizado
+  LOST // No localizado
 }
 
 enum RfidTagStatus {
-  ENROLLED    // Registrado y vinculado
-  UNASSIGNED  // Registrado pero sin vincular
-  UNKNOWN     // Detectado pero no en sistema
+  ENROLLED // Registrado y vinculado
+  UNASSIGNED // Registrado pero sin vincular
+  UNKNOWN // Detectado pero no en sistema
 }
 
 enum InventoryType {
-  UNIT        // Item individual con RFID
-  CONTAINER   // Flight case con RFID
-  BULK        // Cantidad sin RFID
+  UNIT // Item individual con RFID
+  CONTAINER // Flight case con RFID
+  BULK // Cantidad sin RFID
 }
 
 enum MovementType {
@@ -545,11 +615,11 @@ enum MovementType {
 }
 
 enum LocationType {
-  SECTOR    // Sector (letras)
+  SECTOR // Sector (letras)
   CUADRANTE // Cuadrante (números)
-  RACK      // Rack / Estante (letras)
-  NIVEL     // Nivel (números)
-  POSICION  // Posición (números)
+  RACK // Rack / Estante (letras)
+  NIVEL // Nivel (números)
+  POSICION // Posición (números)
 }
 
 // =============================================
@@ -561,8 +631,8 @@ model Category {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  color       String?  // Color hex para UI
-  icon        String?  // Nombre del icono
+  color       String? // Color hex para UI
+  icon        String? // Nombre del icono
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -576,7 +646,7 @@ model Category {
 model Supplier {
   id          String   @id @default(cuid())
   name        String
-  nit         String?  // NIT o documento de identificación
+  nit         String? // NIT o documento de identificación
   contactName String?
   email       String?
   phone       String?
@@ -585,7 +655,7 @@ model Supplier {
   country     String?
   website     String?
   notes       String?  @db.Text
-  rutUrl      String?  // URL del archivo RUT (para futuro)
+  rutUrl      String? // URL del archivo RUT (para futuro)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -601,9 +671,9 @@ model Concept {
   id          String   @id @default(cuid())
   name        String
   description String?  @db.Text
-  supplierId  String?  // Contratista asociado (opcional)
+  supplierId  String? // Contratista asociado (opcional)
   unitPrice   Decimal? @db.Decimal(10, 2) // Precio de referencia
-  category    String?  // Categoria del servicio: audio, iluminacion, catering, etc.
+  category    String? // Categoria del servicio: audio, iluminacion, catering, etc.
   notes       String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -631,7 +701,7 @@ model Product {
   rentalPrice Decimal?      @db.Decimal(10, 2) // Precio de alquiler
   imageUrl    String?
   notes       String?       @db.Text
-  deletedAt   DateTime?     // Soft delete
+  deletedAt   DateTime? // Soft delete
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -649,12 +719,12 @@ model Product {
 
 // ProductSupplier - Relación muchos a muchos producto-proveedor
 model ProductSupplier {
-  productId    String
-  supplierId   String
-  supplierSku  String?  // SKU del proveedor
-  cost         Decimal? @db.Decimal(10, 2)
-  isPreferred  Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  productId   String
+  supplierId  String
+  supplierSku String? // SKU del proveedor
+  cost        Decimal? @db.Decimal(10, 2)
+  isPreferred Boolean  @default(false)
+  createdAt   DateTime @default(now())
 
   // Relations
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -666,29 +736,29 @@ model ProductSupplier {
 
 // InventoryItem - Items físicos con RFID
 model InventoryItem {
-  id           String          @id @default(cuid())
-  productId    String
-  serialNumber String?         @unique
-  assetTag     String?         @unique // Etiqueta interna
-  type         InventoryType   @default(UNIT)
-  status       InventoryStatus @default(IN)
-  condition    String?         // Estado físico: Excelente, Bueno, Regular, Malo
-  location     String?         // Snapshot del fullPath de la ubicación (compatibilidad/movimientos)
-  locationId   String?         // Ubicación estructurada asociada
-  containerId  String?         // ID del contenedor si está dentro de uno
-  containerQuantity Int?        // Cantidad de items dentro del contenedor (solo para type CONTAINER)
-  purchaseDate DateTime?
-  purchasePrice Decimal?       @db.Decimal(10, 2)
-  warrantyExpiry DateTime?
-  notes        String?         @db.Text
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id                String          @id @default(cuid())
+  productId         String
+  serialNumber      String?         @unique
+  assetTag          String?         @unique // Etiqueta interna
+  type              InventoryType   @default(UNIT)
+  status            InventoryStatus @default(IN)
+  condition         String? // Estado físico: Excelente, Bueno, Regular, Malo
+  location          String? // Snapshot del fullPath de la ubicación (compatibilidad/movimientos)
+  locationId        String? // Ubicación estructurada asociada
+  containerId       String? // ID del contenedor si está dentro de uno
+  containerQuantity Int? // Cantidad de items dentro del contenedor (solo para type CONTAINER)
+  purchaseDate      DateTime?
+  purchasePrice     Decimal?        @db.Decimal(10, 2)
+  warrantyExpiry    DateTime?
+  notes             String?         @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   // Relations
-  product        Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
-  container      InventoryItem?       @relation("ContainerContents", fields: [containerId], references: [id])
-  contents       InventoryItem[]      @relation("ContainerContents")
-  locationRef    Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  product        Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  container      InventoryItem?      @relation("ContainerContents", fields: [containerId], references: [id])
+  contents       InventoryItem[]     @relation("ContainerContents")
+  locationRef    Location?           @relation(fields: [locationId], references: [id], onDelete: SetNull)
   rfidTag        RfidTag?
   movements      InventoryMovement[]
   quotationItems QuotationItem[]
@@ -706,13 +776,13 @@ model BulkInventory {
   id          String   @id @default(cuid())
   productId   String   @unique
   quantity    Int      @default(0)
-  minQuantity Int?     // Alerta cuando baja de este nivel
+  minQuantity Int? // Alerta cuando baja de este nivel
   location    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   // Relations
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
   movements BulkMovement[]
 
   @@map("bulk_inventory")
@@ -723,11 +793,11 @@ model BulkMovement {
   id              String       @id @default(cuid())
   bulkInventoryId String
   type            MovementType
-  quantity        Int          // Positivo para entrada, negativo para salida
+  quantity        Int // Positivo para entrada, negativo para salida
   previousQty     Int
   newQty          Int
   reason          String?
-  reference       String?      // Referencia externa (# orden, # proyecto)
+  reference       String? // Referencia externa (# orden, # proyecto)
   performedBy     String
   createdAt       DateTime     @default(now())
 
@@ -744,7 +814,7 @@ model BulkMovement {
 model RfidTag {
   id              String        @id @default(cuid())
   epc             String        @unique // Electronic Product Code
-  tid             String?       // Tag ID (solo lectura)
+  tid             String? // Tag ID (solo lectura)
   inventoryItemId String?       @unique
   status          RfidTagStatus @default(UNASSIGNED)
   firstSeenAt     DateTime      @default(now())
@@ -762,13 +832,13 @@ model RfidTag {
 
 // RfidDetection - Log de detecciones RFID
 model RfidDetection {
-  id         String    @id @default(cuid())
+  id         String   @id @default(cuid())
   rfidTagId  String
   readerId   String
   readerName String?
-  rssi       Int?      // Signal strength
-  direction  String?   // IN, OUT
-  timestamp  DateTime  @default(now())
+  rssi       Int? // Signal strength
+  direction  String? // IN, OUT
+  timestamp  DateTime @default(now())
 
   // Relations
   rfidTag RfidTag @relation(fields: [rfidTagId], references: [id], onDelete: Cascade)
@@ -781,7 +851,7 @@ model RfidDetection {
 
 // InventoryMovement - Auditoría de movimientos de items
 model InventoryMovement {
-  id              String          @id @default(cuid())
+  id              String           @id @default(cuid())
   inventoryItemId String
   type            MovementType
   fromStatus      InventoryStatus?
@@ -789,9 +859,9 @@ model InventoryMovement {
   fromLocation    String?
   toLocation      String?
   reason          String?
-  reference       String?         // Referencia externa
+  reference       String? // Referencia externa
   performedBy     String
-  createdAt       DateTime        @default(now())
+  createdAt       DateTime         @default(now())
 
   // Relations
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
@@ -811,19 +881,19 @@ model InventoryMovement {
 model Location {
   id          String       @id @default(cuid())
   type        LocationType
-  code        String       // Letra o número de este nodo (ej. "A", "1", "B")
+  code        String // Letra o número de este nodo (ej. "A", "1", "B")
   description String?      @db.Text
   parentId    String?
-  fullPath    String       // Ruta legible precalculada (ej. "A · 1 · B · 2 · 3")
+  fullPath    String // Ruta legible precalculada (ej. "A · 1 · B · 2 · 3")
 
   // Imagen 360 (Photo Sphere Viewer) y marcador
-  panoramaUrl        String?  // Imagen 360 equirectangular alojada en R2
-  markerYaw          Float?   // Posición del marcador de ESTE nodo (radianes)
+  panoramaUrl        String? // Imagen 360 equirectangular alojada en R2
+  markerYaw          Float? // Posición del marcador de ESTE nodo (radianes)
   markerPitch        Float?
-  markerOnLocationId String?  // Nodo cuya panorámica hospeda el marcador de este nodo
+  markerOnLocationId String? // Nodo cuya panorámica hospeda el marcador de este nodo
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   parent           Location?       @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)

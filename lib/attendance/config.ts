@@ -64,6 +64,8 @@ export const ATTENDANCE_CONFIG = {
   geo: {
     maxGpsAccuracyMeters: 50,
     minAreaRadiusMeters: 30,
+    /** Un área más grande que esto casi seguro es un error de digitación */
+    maxAreaRadiusMeters: 5000,
   },
 
   /** Turnos y ventana de marcación */
@@ -71,7 +73,22 @@ export const ATTENDANCE_CONFIG = {
     markBeforeStartMs: 2 * HOUR,
     markAfterEndMs: 6 * HOUR,
     lateToleranceMs: 5 * MINUTE,
+    /** Un turno no puede durar más que esto; los eventos de varios días se cargan como varios turnos */
+    maxShiftMs: 24 * HOUR,
+    /** Turnos por asignación en una sola operación */
+    maxShiftsPerAssignment: 120,
+    /** La app recibe los turnos que terminan desde ahora hasta este horizonte */
+    listAheadMs: 30 * DAY,
   },
+
+  /**
+   * Zona horaria de la empresa. Colombia no tiene horario de verano, así que el desfase es fijo;
+   * las fechas se guardan en UTC y se muestran / capturan en hora de Bogotá.
+   */
+  timezone: { name: 'America/Bogota', utcOffset: '-05:00', utcOffsetMs: -5 * HOUR },
+
+  /** Mapa (OpenFreeMap, sin API key). Se cambia de proveedor con la variable de entorno MAP_STYLE_URL. */
+  map: { defaultStyleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
 } as const
 
 export type LoginLimitConfig = { maxAttempts: number; windowMs: number; blockMs: number }

@@ -18,6 +18,7 @@ import {
   Mail,
   Contact,
   ScanFace,
+  MapPinned,
   LucideIcon,
 } from 'lucide-react'
 import { SystemModule } from '@/lib/validations/user'
@@ -95,6 +96,13 @@ export const navSections: NavSection[] = [
     title: 'Asistencia',
     items: [
       {
+        name: 'Áreas',
+        href: '/dashboard/asistencia/areas',
+        icon: MapPinned,
+        modules: ['asistencia_areas'],
+        hint: 'Lugares donde se marca y quién los tiene asignados',
+      },
+      {
         name: 'Registros faciales',
         href: '/dashboard/asistencia/registros',
         icon: ScanFace,
@@ -149,6 +157,8 @@ export const segmentLabels: Record<string, string> = {
   historial: 'Historial',
   asistencia: 'Asistencia',
   registros: 'Registros faciales',
+  areas: 'Áreas',
+  nueva: 'Nueva',
   nuevo: 'Nuevo',
   editar: 'Editar',
 }

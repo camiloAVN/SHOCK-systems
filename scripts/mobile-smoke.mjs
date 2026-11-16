@@ -193,6 +193,7 @@ async function main() {
 
   await fase3(user)
   await fase4(user)
+  await fase5(user)
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -489,12 +490,12 @@ async function fase4(user) {
   const unsigned = await fetch(new URL(w.json.url).origin + new URL(w.json.url).pathname)
   check('la misma foto sin firma NO se puede leer', unsigned.status >= 400, String(unsigned.status))
   check('la URL firmada de la web dura 5 minutos', new URL(w.json.url).searchParams.get('X-Amz-Expires') === '300', new URL(w.json.url).searchParams.get('X-Amz-Expires'))
-  // Caducidad real: el bucket debe rechazar una firma vencida (se firma a 1 s para no esperar 5 min)
+  // Caducidad real: el bucket debe rechazar una firma vencida. Se firma "hace 1 minuto" con 10 s de
+  // vida, así no depende del desfase del reloj local (este equipo llegó a ir 3,6 s adelantado).
   const c = r2()
-  const shortUrl = await getSignedUrl(c.s3, new GetObjectCommand({ Bucket: c.bucket, Key: second.imageKey }), { expiresIn: 1 })
-  const fresh = await fetch(shortUrl)
-  await new Promise((ok) => setTimeout(ok, 2500))
-  const expired = await fetch(shortUrl)
+  const sign = (signingDate) => getSignedUrl(c.s3, new GetObjectCommand({ Bucket: c.bucket, Key: second.imageKey }), { expiresIn: 10, signingDate })
+  const fresh = await fetch(await sign(new Date()))
+  const expired = await fetch(await sign(new Date(Date.now() - 60_000)))
   check('una URL firmada vencida ya no abre la foto', fresh.status === 200 && expired.status === 403, `${fresh.status} -> ${expired.status}`)
 
   const review = (id, body, cookie = adminCookie) => web(`/api/attendance/enrollments/${id}/review`, cookie, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
@@ -535,6 +536,130 @@ async function fase4(user) {
   check('la sección "App móvil" de la web muestra el registro', w.json?.enrollment?.status === 'revoked', JSON.stringify(w.json?.enrollment))
 }
 
+// ───────────────────────── Fase 5: áreas, asignaciones y turnos ─────────────────────────
+
+const AREA_PREFIX = 'Smoke área'
+const SMOKE_TEAM = 'Smoke equipo de asistencia'
+
+async function fase5(user) {
+  console.log('\n18. Áreas: permisos')
+  const admin = await ensureUser(PHASE3_EMAILS.admin, 'ADMIN')
+  const viewer = await ensureUser(PHASE3_EMAILS.admin2, 'ADMIN')
+  const plain = await ensureUser(PHASE3_EMAILS.plain, 'USER')
+  await prisma.userPermission.deleteMany({ where: { userId: { in: [admin.id, viewer.id, plain.id] }, module: 'asistencia_areas' } })
+  const plainCookie = await webLogin(PHASE3_EMAILS.plain)
+  const viewerCookie = await webLogin(PHASE3_EMAILS.admin2)
+  const adminCookie = await webLogin(PHASE3_EMAILS.admin)
+  const json = (method, body) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const center = { latitude: 4.6097, longitude: -74.0817 }
+  const areaBody = (name, extra = {}) => ({ name: `${AREA_PREFIX} ${name}`, latitude: center.latitude, longitude: center.longitude, radiusMeters: 50, ...extra })
+
+  let w = await web('/api/attendance/areas', plainCookie)
+  check('sin el módulo asistencia_areas: lista -> 403', w.status === 403, String(w.status))
+  w = await web('/api/attendance/areas', adminCookie)
+  check('ser ADMIN no basta: sin el módulo -> 403', w.status === 403, String(w.status))
+
+  await prisma.userPermission.create({ data: { userId: viewer.id, module: 'asistencia_areas', canView: true, canEdit: false } })
+  w = await web('/api/attendance/areas', viewerCookie)
+  check('con permiso de ver: lista sin poder editar, con el estilo del mapa', w.status === 200 && w.json?.canEdit === false && /^https:/.test(w.json?.mapStyleUrl ?? ''), `${w.status} ${JSON.stringify(w.json?.canEdit)}`)
+  w = await web('/api/attendance/areas', viewerCookie, json('POST', areaBody('no debe crearse')))
+  check('con permiso de ver: crear -> 403', w.status === 403, String(w.status))
+  w = await web('/api/attendance/options', viewerCookie)
+  check('con permiso de ver: opciones del formulario -> 403', w.status === 403, String(w.status))
+
+  await prisma.userPermission.create({ data: { userId: admin.id, module: 'asistencia_areas', canView: true, canEdit: true } })
+  w = await web('/api/attendance/areas', adminCookie, json('POST', areaBody('chica', { radiusMeters: 29 })))
+  check('radio menor a 30 m -> 400 con mensaje claro', w.status === 400 && /30 m/.test(w.json?.error ?? ''), `${w.status} ${w.json?.error}`)
+  w = await web('/api/attendance/areas', adminCookie, json('POST', { name: `${AREA_PREFIX} sin centro`, radiusMeters: 50 }))
+  check('sin centro -> 400', w.status === 400, `${w.status} ${w.json?.error}`)
+
+  const created = {}
+  for (const [key, extra] of [['A directa', {}], ['B equipo', {}], ['C de otro', {}], ['D inactiva', { isActive: false }], ['E vencida', {}]]) {
+    w = await web('/api/attendance/areas', adminCookie, json('POST', areaBody(key, extra)))
+    created[key[0]] = w.json
+  }
+  check('con permiso de editar: crea las áreas', Object.values(created).every((a) => !!a?.id))
+  check('crear un área queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_AREA_CREATED', entityId: created.A.id, performedBy: admin.id } })))
+  w = await web('/api/attendance/options', adminCookie)
+  check('opciones: personas activas, equipos y proyectos', w.status === 200 && Array.isArray(w.json?.users) && Array.isArray(w.json?.teams) && Array.isArray(w.json?.projects))
+
+  console.log('\n19. Asignaciones y turnos')
+  const H = 3_600_000
+  const now = Date.now()
+  const iso = (ms) => new Date(ms).toISOString()
+  const team = await prisma.team.upsert({ where: { name: SMOKE_TEAM }, update: {}, create: { name: SMOKE_TEAM } })
+  await prisma.teamMember.upsert({ where: { teamId_userId: { teamId: team.id, userId: user.id } }, update: {}, create: { teamId: team.id, userId: user.id } })
+  const assign = (areaId, body, cookie = adminCookie) => web(`/api/attendance/areas/${areaId}/assignments`, cookie, json('POST', body))
+
+  w = await assign(created.A.id, { userId: user.id, teamId: team.id, shifts: [{ startsAt: iso(now + H), endsAt: iso(now + 9 * H) }] })
+  check('persona y equipo a la vez -> 400', w.status === 400, `${w.status} ${w.json?.error}`)
+  w = await assign(created.A.id, { userId: user.id, shifts: [{ startsAt: iso(now + H), endsAt: iso(now + 9 * H) }, { startsAt: iso(now + 8 * H), endsAt: iso(now + 12 * H) }] })
+  check('turnos que se cruzan -> 400', w.status === 400 && /se cruzan/.test(w.json?.error ?? ''), `${w.status} ${w.json?.error}`)
+  w = await assign(created.A.id, { userId: user.id, shifts: [{ startsAt: iso(now + H), endsAt: iso(now + 30 * H) }] })
+  check('turno de más de 24 h -> 400', w.status === 400, `${w.status} ${w.json?.error}`)
+  w = await assign(created.A.id, { userId: 'no-existe', shifts: [{ startsAt: iso(now + H), endsAt: iso(now + 9 * H) }] })
+  check('persona inexistente -> 400', w.status === 400, `${w.status} ${w.json?.error}`)
+  w = await assign(created.A.id, { userId: user.id, shifts: [{ startsAt: iso(now + H), endsAt: iso(now + 9 * H) }] }, viewerCookie)
+  check('con permiso de ver: asignar -> 403', w.status === 403, String(w.status))
+
+  const assignA = await assign(created.A.id, { userId: user.id, notes: 'Smoke montaje', shifts: [{ startsAt: iso(now + 3 * H), endsAt: iso(now + 11 * H) }] }) // próximo
+  await assign(created.B.id, { teamId: team.id, shifts: [{ startsAt: iso(now - H), endsAt: iso(now + 3 * H) }] }) // abierto, por equipo
+  await assign(created.C.id, { userId: plain.id, shifts: [{ startsAt: iso(now + 24 * H), endsAt: iso(now + 32 * H) }] }) // de otra persona
+  await assign(created.D.id, { userId: user.id, shifts: [{ startsAt: iso(now + 24 * H), endsAt: iso(now + 32 * H) }] }) // área inactiva
+  await assign(created.E.id, { userId: user.id, shifts: [{ startsAt: iso(now - 72 * H), endsAt: iso(now - 64 * H) }] }) // vencido
+  check('asignar a una persona -> 201', assignA.status === 201 && assignA.json?.shifts?.length === 1, `${assignA.status} ${assignA.json?.error}`)
+  check('asignar queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_ASSIGNMENT_CREATED', entityId: assignA.json?.id } })))
+  w = await web(`/api/attendance/areas/${created.A.id}`, viewerCookie)
+  check('con permiso de ver: el detalle muestra la asignación', w.status === 200 && w.json?.area?.assignments?.length === 1 && w.json?.canEdit === false, String(w.status))
+
+  console.log('\n20. Lo que ve cada empleado en la app')
+  const phone = await loginAs('smoke-phone-AREAS')
+  let r = await call('GET', '/assignments', { token: phone.accessToken })
+  const names = (r.data?.assignments ?? []).map((a) => a.area.name.replace(`${AREA_PREFIX} `, ''))
+  check('GET /assignments responde con la hora del servidor', r.status === 200 && !!r.data?.serverTime, `${r.status} ${r.code}`)
+  check('ve la directa y la del equipo, primero la abierta', JSON.stringify(names) === JSON.stringify(['B equipo', 'A directa']), JSON.stringify(names))
+  const b = r.data?.assignments?.[0]
+  check('la del equipo dice por qué equipo y está abierta', b?.via?.type === 'team' && b?.via?.teamName === SMOKE_TEAM && b?.shifts?.[0]?.phase === 'open', JSON.stringify(b?.via))
+  check('trae centro, radio y ventana de marcación', b?.area?.radiusMeters === 50 && b?.area?.latitude === center.latitude && !!b?.shifts?.[0]?.opensAt && !!b?.shifts?.[0]?.closesAt)
+  check('no ve el área de otra persona, ni la inactiva, ni la vencida', !names.some((n) => /^(C|D|E) /.test(n)))
+  r = await call('GET', '/assignments')
+  check('sin token -> 401 TOKEN_MISSING', r.status === 401 && r.code === 'TOKEN_MISSING', `${r.status} ${r.code}`)
+  const plainPhone = (await call('POST', '/auth/login', { body: { email: PHASE3_EMAILS.plain, password: PASSWORD, device: { installationId: 'smoke-phone-PLAIN', platform: 'android' } } })).data
+  r = await call('GET', '/assignments', { token: plainPhone?.accessToken })
+  check('la otra persona solo ve la suya', JSON.stringify((r.data?.assignments ?? []).map((a) => a.area.name)) === JSON.stringify([`${AREA_PREFIX} C de otro`]), JSON.stringify(r.data?.assignments?.map((a) => a.area.name)))
+
+  console.log('\n21. Editar y quitar')
+  const oldShift = assignA.json.shifts[0]
+  w = await web(`/api/attendance/assignments/${assignA.json.id}`, adminCookie, json('PUT', {
+    userId: user.id,
+    notes: 'Smoke montaje (editado)',
+    shifts: [{ id: oldShift.id, startsAt: oldShift.startsAt, endsAt: oldShift.endsAt }, { startsAt: iso(now + 26 * H), endsAt: iso(now + 34 * H) }],
+  }))
+  check('editar conserva el turno existente (mismo id) y agrega el nuevo', w.status === 200 && w.json?.shifts?.length === 2 && w.json.shifts.some((s) => s.id === oldShift.id), `${w.status} ${w.json?.error}`)
+  const other = await prisma.attendanceShift.findFirst({ where: { assignment: { areaId: created.C.id } } })
+  w = await web(`/api/attendance/assignments/${assignA.json.id}`, adminCookie, json('PUT', { userId: user.id, shifts: [{ id: other.id, startsAt: iso(now + H), endsAt: iso(now + 2 * H) }] }))
+  check('no se puede "robar" un turno de otra asignación -> 400', w.status === 400, `${w.status} ${w.json?.error}`)
+
+  await prisma.teamMember.deleteMany({ where: { teamId: team.id, userId: user.id } })
+  r = await call('GET', '/assignments', { token: phone.accessToken })
+  check('al salir del equipo deja de ver el área del equipo', !(r.data?.assignments ?? []).some((a) => a.via.type === 'team'), JSON.stringify(r.data?.assignments?.map((a) => a.area.name)))
+
+  w = await web(`/api/attendance/areas/${created.C.id}`, viewerCookie, { method: 'DELETE' })
+  check('con permiso de ver: eliminar -> 403', w.status === 403, String(w.status))
+  w = await web(`/api/attendance/areas/${created.C.id}`, adminCookie, { method: 'DELETE' })
+  check('eliminar el área borra sus asignaciones y turnos', w.status === 200 && (await prisma.attendanceAssignment.count({ where: { areaId: created.C.id } })) === 0, String(w.status))
+  r = await call('GET', '/assignments', { token: plainPhone?.accessToken })
+  check('...y desaparece de la app', (r.data?.assignments ?? []).length === 0)
+  check('eliminar queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_AREA_DELETED', entityId: created.C.id } })))
+}
+
+async function cleanupPhase5() {
+  await prisma.attendanceArea.deleteMany({ where: { name: { startsWith: AREA_PREFIX } } })
+  await prisma.team.deleteMany({ where: { name: SMOKE_TEAM } })
+  await prisma.auditLog.deleteMany({ where: { module: 'asistencia_areas', description: { contains: 'Smoke' } } })
+  await prisma.userPermission.deleteMany({ where: { module: 'asistencia_areas', user: { email: { in: Object.values(PHASE3_EMAILS) } } } })
+}
+
 async function cleanupPhase4() {
   const users = await prisma.user.findMany({ where: { email: { in: [EMAIL, ...Object.values(PHASE3_EMAILS)] } }, select: { id: true } })
   const ids = users.map((u) => u.id)
@@ -561,6 +686,7 @@ main()
   })
   .finally(async () => {
     // Limpieza: los usuarios de prueba y todo lo suyo
+    await cleanupPhase5().catch((e) => console.error('Limpieza fase 5:', e.message))
     await cleanupPhase4().catch((e) => console.error('Limpieza fase 4:', e.message))
     // Las entradas de bitácora de los registros faciales apuntan al id del registro
     await prisma.auditLog.deleteMany({ where: { entityType: 'face_enrollment', description: { contains: 'prueba.local' } } }).catch(() => {})

@@ -28,6 +28,7 @@ const routeToModule: Record<string, SystemModule> = {
   '/dashboard/configuracion': 'configuracion',
   '/dashboard/tareas': 'tareas',
   '/dashboard/asistencia': 'asistencia_reportes',
+  '/dashboard/asistencia/areas': 'asistencia_areas',
 }
 
 // Rutas que no requieren permisos específicos (accesibles para todos los usuarios autenticados).

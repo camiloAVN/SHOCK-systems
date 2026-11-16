@@ -42,7 +42,8 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()'
+    // geolocation=(self): botón "usar mi ubicación" al crear un área de asistencia (solo este sitio)
+    value: 'camera=(), microphone=(), geolocation=(self), browsing-topics=()'
   },
   {
     key: 'Content-Security-Policy',
@@ -54,6 +55,9 @@ const securityHeaders = [
       "img-src 'self' blob: data: https:",
       "font-src 'self' data:",
       "connect-src 'self' https:",
+      // MapLibre (mapa de áreas de asistencia) dibuja el mapa con workers creados desde blob:
+      "worker-src 'self' blob:",
+      "child-src 'self' blob:",
       "frame-ancestors 'self'",
       "form-action 'self'",
       "base-uri 'self'",
