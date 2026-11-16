@@ -49,6 +49,9 @@ model User {
   attendanceAssignments        AttendanceAssignment[] @relation("AttendanceAssignmentUser")
   createdAttendanceAreas       AttendanceArea[]       @relation("AttendanceAreaCreator")
   createdAttendanceAssignments AttendanceAssignment[] @relation("AttendanceAssignmentCreator")
+  attendanceMarks              AttendanceMark[]       @relation("AttendanceMarkUser")
+  attendanceShiftLocks         AttendanceShiftLock[]  @relation("AttendanceShiftLockUser")
+  unlockedShiftLocks           AttendanceShiftLock[]  @relation("AttendanceShiftLockUnlocker")
 
   @@map("users")
 }
@@ -111,11 +114,88 @@ model AttendanceShift {
   endsAt       DateTime
   createdAt    DateTime @default(now())
 
-  assignment AttendanceAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignment AttendanceAssignment  @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  marks      AttendanceMark[]
+  locks      AttendanceShiftLock[]
 
   @@index([assignmentId])
   @@index([endsAt])
   @@map("attendance_shifts")
+}
+
+// ─── Asistencia: marcaciones (Fase 6) ───
+
+enum AttendanceMarkType {
+  IN
+  OUT
+}
+
+enum AttendanceMarkStatus {
+  VALID // cuenta para el par entrada/salida
+  PENDING_REVIEW // cuenta, pero un supervisor debe revisarla (fuera del área, GPS impreciso)
+  FACE_MISMATCH // intento fallido: el rostro no coincidió; NO cuenta (se puede reintentar)
+  REJECTED // rechazada: ubicación simulada o teléfono no vinculado; NO cuenta
+}
+
+// Marcación de entrada/salida. La hora oficial (officialAt) es la del servidor.
+// Es historial de asistencia: no se borra en cascada (onDelete: Restrict).
+model AttendanceMark {
+  id                String               @id @default(cuid())
+  userId            String
+  shiftId           String
+  // Id generado en el teléfono: el reenvío de la misma marcación no la duplica
+  clientMarkId      String
+  // Tipo que correspondía (en FACE_MISMATCH / REJECTED, el que se intentó)
+  type              AttendanceMarkType
+  status            AttendanceMarkStatus
+  // OUT_OF_AREA, LOW_GPS_ACCURACY, FACE_MISMATCH, NO_FACE, MOCK_LOCATION, DEVICE_NOT_BOUND
+  reasons           String[]
+  officialAt        DateTime             @default(now())
+  // Hora que tenía el teléfono (informativa)
+  deviceAt          DateTime?
+  latitude          Float
+  longitude         Float
+  accuracyMeters    Float?
+  distanceMeters    Float?
+  mocked            Boolean              @default(false)
+  similarity        Float?
+  selfieKey         String?
+  selfieBytes       Int?
+  livenessMethod    String
+  livenessAttemptId String               @unique
+  installationId    String?
+  offline           Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+
+  user            User            @relation("AttendanceMarkUser", fields: [userId], references: [id], onDelete: Restrict)
+  shift           AttendanceShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  livenessAttempt LivenessAttempt @relation(fields: [livenessAttemptId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, clientMarkId])
+  @@index([shiftId, userId, officialAt])
+  @@index([status, officialAt])
+  @@map("attendance_marks")
+}
+
+// Bloqueo de un turno PARA UNA PERSONA tras varios rostros fallidos (un turno de equipo lo
+// comparten varias personas). activeKey = "<userId>:<shiftId>" mientras está bloqueado (único).
+model AttendanceShiftLock {
+  id           String    @id @default(cuid())
+  userId       String
+  shiftId      String
+  activeKey    String?   @unique
+  lockedAt     DateTime  @default(now())
+  unlockedAt   DateTime?
+  unlockedById String?
+  unlockNote   String?   @db.Text
+
+  user       User            @relation("AttendanceShiftLockUser", fields: [userId], references: [id], onDelete: Restrict)
+  unlockedBy User?           @relation("AttendanceShiftLockUnlocker", fields: [unlockedById], references: [id], onDelete: SetNull)
+  shift      AttendanceShift @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+
+  @@index([shiftId, userId])
+  @@index([unlockedAt])
+  @@map("attendance_shift_locks")
 }
 
 enum FaceEnrollmentStatus {
@@ -172,6 +252,7 @@ model LivenessAttempt {
 
   user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   enrollment FaceEnrollment?
+  mark       AttendanceMark?
 
   @@index([userId, createdAt])
   @@map("liveness_attempts")

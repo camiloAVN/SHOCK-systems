@@ -35,6 +35,15 @@ export const ATTENDANCE_CONFIG = {
     selfieMaxBytes: 1024 * 1024,
   },
 
+  /** Marcaciones (Fase 6) */
+  marks: {
+    /** Historial que ve el empleado en la app */
+    historyDays: 30,
+    historyMax: 100,
+    /** Una entrada sin salida se sigue mostrando (para poder marcar la salida) hasta estos días después del turno */
+    openEntryLookbackDays: 7,
+  },
+
   /**
    * Calidad mínima de la foto de referencia (registro facial), medida con DetectFaces.
    * Valores iniciales; se guardan las métricas de cada envío para ajustarlos con datos reales.

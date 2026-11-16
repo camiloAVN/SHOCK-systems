@@ -25,6 +25,10 @@ export const MOBILE_ERROR_STATUS = {
   MULTIPLE_FACES: 422,
   FACE_QUALITY_LOW: 422,
   ENROLLMENT_ALREADY_APPROVED: 409,
+  ENROLLMENT_REQUIRED: 403,
+  SHIFT_NOT_ASSIGNED: 403,
+  SHIFT_LOCKED: 409,
+  MARK_WINDOW_CLOSED: 409,
   SERVER_MISCONFIGURED: 500,
   INTERNAL_ERROR: 500,
 } as const
@@ -52,6 +56,10 @@ const DEFAULT_MESSAGES: Record<MobileErrorCode, string> = {
   MULTIPLE_FACES: 'Hay más de una persona en la foto',
   FACE_QUALITY_LOW: 'La foto no tiene la calidad suficiente',
   ENROLLMENT_ALREADY_APPROVED: 'Ya tienes un registro facial aprobado',
+  ENROLLMENT_REQUIRED: 'Para marcar asistencia necesitas un registro facial aprobado',
+  SHIFT_NOT_ASSIGNED: 'Este turno no está asignado a tu cuenta',
+  SHIFT_LOCKED: 'Este turno está bloqueado por intentos fallidos de rostro. Un supervisor debe revisarlo',
+  MARK_WINDOW_CLOSED: 'Fuera del horario en que se puede marcar este turno',
   SERVER_MISCONFIGURED: 'El servidor no está configurado para la app',
   INTERNAL_ERROR: 'Error interno',
 }

@@ -31,7 +31,7 @@ export const mobileDeviceBindSchema = z.object({
 })
 
 export const mobileLivenessAttemptSchema = z.object({
-  purpose: z.enum(['enrollment']).default('enrollment'),
+  purpose: z.enum(['enrollment', 'mark']).default('enrollment'),
 })
 
 export type MobileLoginInput = z.infer<typeof mobileLoginSchema>

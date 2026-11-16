@@ -1,7 +1,8 @@
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { ATTENDANCE_CONFIG } from '@/lib/attendance/config'
-import { visibleShifts, visibleShiftsRange } from '@/lib/attendance/shifts'
+import { markingStates } from '@/lib/attendance/marks'
+import { shiftWindow, visibleShifts, visibleShiftsRange } from '@/lib/attendance/shifts'
 import type { AttendanceAreaInput, AttendanceAssignmentInput } from '@/lib/validations/attendance'
 
 /**
@@ -97,9 +98,16 @@ export async function updateArea(id: string, input: AttendanceAreaInput) {
   return { before, after }
 }
 
+/** Las marcaciones son historial de asistencia: lo que las tenga no se puede borrar. */
+async function assertNoMarks(where: Prisma.AttendanceMarkWhereInput, what: string, hint: string) {
+  const marks = await prisma.attendanceMark.count({ where })
+  if (marks > 0) throw new AreaError(409, `No se puede eliminar: ${what} ya tiene ${marks === 1 ? '1 marcación' : `${marks} marcaciones`} de asistencia. ${hint}`)
+}
+
 export async function deleteArea(id: string) {
   const area = await prisma.attendanceArea.findUnique({ where: { id }, select: { id: true, name: true, _count: { select: { assignments: true } } } })
   if (!area) throw new AreaError(404, 'Área no encontrada')
+  await assertNoMarks({ shift: { assignment: { areaId: id } } }, 'el área', 'Desmárcala como activa para que deje de aparecer en la app.')
   await prisma.attendanceArea.delete({ where: { id } })
   return area
 }
@@ -153,6 +161,8 @@ export async function updateAssignment(id: string, input: AttendanceAssignmentIn
     if (s.id && !existing.has(s.id)) throw new AreaError(400, 'Uno de los turnos no pertenece a esta asignación')
   }
   const keep = new Set(input.shifts.flatMap((s) => (s.id ? [s.id] : [])))
+  const removed = before.shifts.filter((s) => !keep.has(s.id)).map((s) => s.id)
+  if (removed.length) await assertNoMarks({ shiftId: { in: removed } }, 'alguno de los turnos que quitaste', 'Esos turnos deben conservarse.')
   const changed = input.shifts.filter((s) => {
     const old = s.id ? existing.get(s.id) : undefined
     return old && (old.startsAt.getTime() !== s.startsAt.getTime() || old.endsAt.getTime() !== s.endsAt.getTime())
@@ -181,6 +191,7 @@ export async function deleteAssignment(id: string) {
     include: { area: { select: { id: true, name: true } }, user: { select: { email: true } }, team: { select: { name: true } } },
   })
   if (!assignment) throw new AreaError(404, 'Asignación no encontrada')
+  await assertNoMarks({ shift: { assignmentId: id } }, 'la asignación', 'Quita solo los turnos futuros que no tengan marcaciones.')
   await prisma.attendanceAssignment.delete({ where: { id } })
   return assignment
 }
@@ -207,27 +218,45 @@ export async function assignmentOptions() {
 export async function myAssignments(userId: string, now = new Date()) {
   const { endsAtFrom, startsAtTo } = visibleShiftsRange(now)
   const memberships = await prisma.teamMember.findMany({ where: { userId }, select: { teamId: true } })
+  // Turnos vigentes o próximos, más los recientes ya cerrados en los que la persona marcó
+  // (por si dejó una entrada abierta: la salida se sigue permitiendo)
+  const lookback = new Date(now.getTime() - ATTENDANCE_CONFIG.marks.openEntryLookbackDays * 24 * 3_600_000)
+  const shiftWhere: Prisma.AttendanceShiftWhereInput = {
+    OR: [
+      { endsAt: { gte: endsAtFrom }, startsAt: { lte: startsAtTo } },
+      { endsAt: { gte: lookback }, startsAt: { lte: now }, marks: { some: { userId, type: 'IN', status: { in: ['VALID', 'PENDING_REVIEW'] } } } },
+    ],
+  }
   const rows = await prisma.attendanceAssignment.findMany({
     where: {
       area: { isActive: true },
       OR: [{ userId }, ...(memberships.length ? [{ teamId: { in: memberships.map((m) => m.teamId) } }] : [])],
-      shifts: { some: { endsAt: { gte: endsAtFrom }, startsAt: { lte: startsAtTo } } },
+      shifts: { some: shiftWhere },
     },
     select: {
       id: true,
       notes: true,
       team: { select: { id: true, name: true } },
       area: { select: { id: true, name: true, description: true, latitude: true, longitude: true, radiusMeters: true, project: { select: { title: true } } } },
-      shifts: {
-        where: { endsAt: { gte: endsAtFrom }, startsAt: { lte: startsAtTo } },
-        orderBy: { startsAt: 'asc' },
-        select: { id: true, startsAt: true, endsAt: true },
-      },
+      shifts: { where: shiftWhere, orderBy: { startsAt: 'asc' }, select: { id: true, startsAt: true, endsAt: true } },
     },
   })
 
+  // Estado de marcación por turno: entrada o salida, bloqueo e intentos de rostro restantes.
+  // Una entrada abierta mantiene visible el turno aunque su ventana haya cerrado (la salida se permite).
+  const marking = await markingStates(userId, rows.flatMap((r) => r.shifts.map((s) => s.id)))
+  const keep = (s: { id: string }) => marking.get(s.id)?.next === 'OUT'
+
   return rows
-    .map((row) => ({ row, shifts: visibleShifts(row.shifts, now) }))
+    .map((row) => ({
+      row,
+      shifts: [
+        ...visibleShifts(row.shifts, now),
+        ...row.shifts
+          .filter((s) => keep(s) && !visibleShifts([s], now).length)
+          .map((s) => ({ ...s, ...shiftWindow(s), phase: 'expired' as const })),
+      ].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime()),
+    }))
     .filter(({ shifts }) => shifts.length > 0)
     .sort((a, b) => a.shifts[0].startsAt.getTime() - b.shifts[0].startsAt.getTime())
     .map(({ row, shifts }) => ({
@@ -250,6 +279,7 @@ export async function myAssignments(userId: string, now = new Date()) {
         opensAt: s.opensAt.toISOString(),
         closesAt: s.closesAt.toISOString(),
         phase: s.phase,
+        marking: marking.get(s.id) ?? null,
       })),
     }))
 }

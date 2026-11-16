@@ -27,7 +27,7 @@ export function randomChallenge(rand: (max: number) => number = randomInt): Live
 
 // ───────────────────────────── Intentos ─────────────────────────────
 
-export async function createLivenessAttempt(userId: string, purpose: 'enrollment') {
+export async function createLivenessAttempt(userId: string, purpose: 'enrollment' | 'mark') {
   const { attemptTtlMs, maxAttemptsPerHour } = ATTENDANCE_CONFIG.liveness
   const recent = await prisma.livenessAttempt.count({
     where: { userId, createdAt: { gt: new Date(Date.now() - 60 * 60 * 1000) } },
@@ -47,7 +47,7 @@ export async function createLivenessAttempt(userId: string, purpose: 'enrollment
 }
 
 /** Consume el intento (solo una vez, solo su dueño, solo si no caducó). */
-async function consumeAttempt(attemptId: string, userId: string, purpose: string) {
+export async function consumeAttempt(attemptId: string, userId: string, purpose: string) {
   const now = new Date()
   const used = await prisma.livenessAttempt.updateMany({
     where: { id: attemptId, userId, purpose, usedAt: null, expiresAt: { gt: now } },

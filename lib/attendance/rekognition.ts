@@ -1,5 +1,6 @@
-import { DetectFacesCommand, RekognitionClient, type FaceDetail } from '@aws-sdk/client-rekognition'
+import { CompareFacesCommand, DetectFacesCommand, RekognitionClient, type FaceDetail } from '@aws-sdk/client-rekognition'
 import { ATTENDANCE_CONFIG } from '@/lib/attendance/config'
+import type { FaceResult } from '@/lib/attendance/mark-rules'
 
 /**
  * Rekognition para la app de asistencia. Usa el usuario IAM técnico
@@ -21,6 +22,28 @@ function getClient(): RekognitionClient {
 export async function detectFaces(image: Buffer): Promise<FaceDetail[]> {
   const result = await getClient().send(new DetectFacesCommand({ Image: { Bytes: image }, Attributes: ['DEFAULT'] }))
   return result.FaceDetails ?? []
+}
+
+/**
+ * Compara la foto de referencia (aprobada) con la selfie de la marcación.
+ * Devuelve la MEJOR similitud entre los rostros de la selfie (null si ninguno coincide),
+ * o found=false si la selfie no tiene rostro. El umbral lo aplica mark-rules.ts.
+ */
+export async function compareFaces(reference: Buffer, selfie: Buffer): Promise<FaceResult> {
+  try {
+    const result = await getClient().send(
+      new CompareFacesCommand({ SourceImage: { Bytes: reference }, TargetImage: { Bytes: selfie }, SimilarityThreshold: 0 })
+    )
+    const matches = result.FaceMatches ?? []
+    const total = matches.length + (result.UnmatchedFaces?.length ?? 0)
+    if (total === 0) return { found: false }
+    const best = matches.reduce<number | null>((max, m) => (typeof m.Similarity === 'number' && (max === null || m.Similarity > max) ? m.Similarity : max), null)
+    return { found: true, similarity: best === null ? null : Math.round(best * 100) / 100 }
+  } catch (error) {
+    // Rekognition responde InvalidParameterException cuando una imagen no tiene rostros
+    if ((error as { name?: string })?.name === 'InvalidParameterException') return { found: false }
+    throw error
+  }
 }
 
 export type QualityProblem =

@@ -194,6 +194,7 @@ async function main() {
   await fase3(user)
   await fase4(user)
   await fase5(user)
+  await fase6(user)
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -653,6 +654,196 @@ async function fase5(user) {
   check('eliminar queda en la bitácora', !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_AREA_DELETED', entityId: created.C.id } })))
 }
 
+// ───────────────────────── Fase 6: marcación en línea ─────────────────────────
+
+const FOTOS = 'C:/dev/xenith-asistencia/spikes/fase0/scripts/fotos'
+const SAME_PERSON_IMAGE = process.env.SMOKE_SAME_FACE_IMAGE || `${FOTOS}/misma.jpg`
+const OTHER_PERSON_IMAGE = process.env.SMOKE_OTHER_FACE_IMAGE || `${FOTOS}/otra.jpg`
+const MARK_AREA = `${AREA_PREFIX} marcación`
+
+async function fase6(user) {
+  if (![FACE_IMAGE, SAME_PERSON_IMAGE, OTHER_PERSON_IMAGE].every((f) => fs.existsSync(f)) || !r2() || !process.env.AWS_ACCESS_KEY_ID) {
+    console.log('\n22-26. Marcación: OMITIDO (faltan fotos de prueba o las claves de .env.local)')
+    failed++
+    return
+  }
+  const reference = fs.readFileSync(FACE_IMAGE)
+  const same = fs.readFileSync(SAME_PERSON_IMAGE)
+  const other = fs.readFileSync(OTHER_PERSON_IMAGE)
+  const H = 3_600_000
+  const now = Date.now()
+  const iso = (ms) => new Date(ms).toISOString()
+  const center = { latitude: 4.6097, longitude: -74.0817 }
+  const north = (m) => center.latitude + m / 111_195
+
+  console.log('\n22. Preparación: activación completa y registro facial aprobado')
+  await prisma.faceEnrollment.deleteMany({ where: { userId: user.id } })
+  await prisma.livenessAttempt.deleteMany({ where: { userId: user.id } })
+  await prisma.mobileDevice.deleteMany({ where: { userId: user.id } })
+  const phone = await loginAs('smoke-phone-MARK')
+  const doc = await call('GET', '/consent', { token: phone.accessToken })
+  await call('POST', '/consent', { token: phone.accessToken, body: { version: doc.data.version, textHash: doc.data.textHash } })
+  await call('POST', '/device', { token: phone.accessToken, body: { platform: 'android' } })
+  const markAttempt = async (token = phone.accessToken) => (await call('POST', '/liveness/attempts', { token, body: { purpose: 'mark' } })).data
+  const mark = async (body, token = phone.accessToken) => {
+    const form = new FormData()
+    for (const [k, v] of Object.entries(body)) if (k !== 'photo' && v !== undefined) form.append(k, String(v))
+    form.append('photo', new Blob([body.photo], { type: 'image/jpeg' }), 'selfie.jpg')
+    const res = await fetch(`${API}/marks`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': FAKE_IP }, body: form })
+    const json = await res.json().catch(() => null)
+    return { status: res.status, data: json?.data, code: json?.error?.code, json }
+  }
+  let seq = 0
+  const clientId = () => `smoke${Date.now()}${++seq}`
+  const base = (shiftId, attemptId, extra = {}) => ({ clientMarkId: clientId(), shiftId, attemptId, latitude: north(10), longitude: center.longitude, accuracy: 8, mocked: 'false', deviceTime: new Date().toISOString(), photo: same, ...extra })
+
+  // Sin registro facial aprobado no se puede marcar
+  const admin = await ensureUser(PHASE3_EMAILS.admin, 'ADMIN')
+  const viewer = await ensureUser(PHASE3_EMAILS.admin2, 'ADMIN')
+  await prisma.userPermission.deleteMany({ where: { userId: { in: [admin.id, viewer.id] }, module: { in: ['asistencia_areas', 'asistencia_reportes'] } } })
+  await prisma.userPermission.createMany({
+    data: [
+      { userId: admin.id, module: 'asistencia_areas', canView: true, canEdit: true },
+      { userId: admin.id, module: 'asistencia_reportes', canView: true, canEdit: true },
+      { userId: viewer.id, module: 'asistencia_reportes', canView: true, canEdit: false },
+    ],
+  })
+  const adminCookie = await webLogin(PHASE3_EMAILS.admin)
+  const viewerCookie = await webLogin(PHASE3_EMAILS.admin2)
+  const json = (method, body) => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  let w = await web('/api/attendance/areas', adminCookie, json('POST', { name: MARK_AREA, ...center, radiusMeters: 50 }))
+  const area = w.json
+  w = await web(`/api/attendance/areas/${area.id}/assignments`, adminCookie, json('POST', {
+    userId: user.id,
+    shifts: [
+      { startsAt: iso(now - H), endsAt: iso(now + 4 * H) }, // abierto
+      { startsAt: iso(now + 6 * H), endsAt: iso(now + 10 * H) }, // aún no abre (abre 2 h antes)
+      { startsAt: iso(now - 20 * H), endsAt: iso(now - 12 * H) }, // ventana cerrada hace 6 h
+    ],
+  }))
+  // La API devuelve los turnos ordenados por inicio: pasado, abierto, futuro
+  const [pastShift, openShift, futureShift] = w.json.shifts
+  check('turnos de prueba creados', !!openShift && !!futureShift && !!pastShift, `${w.status} ${w.json?.error}`)
+
+  let r = await mark(base(openShift.id, (await markAttempt()).attemptId))
+  check('sin registro facial aprobado -> 403 ENROLLMENT_REQUIRED', r.status === 403 && r.code === 'ENROLLMENT_REQUIRED', `${r.status} ${r.code}`)
+
+  const enrollAttempt = (await call('POST', '/liveness/attempts', { token: phone.accessToken, body: { purpose: 'enrollment' } })).data
+  await upload(phone.accessToken, enrollAttempt.attemptId, reference)
+  const enrollment = await prisma.faceEnrollment.findFirst({ where: { userId: user.id, status: 'PENDING' } })
+  w = await web(`/api/attendance/enrollments/${enrollment?.id}/review`, adminCookie, json('POST', { action: 'approve' }))
+  check('registro facial aprobado para la prueba', w.status === 200, `${w.status} ${JSON.stringify(w.json)}`)
+
+  console.log('\n23. Precondiciones (no queda registro)')
+  const countMarks = () => prisma.attendanceMark.count({ where: { userId: user.id } })
+  r = await mark(base(openShift.id, enrollAttempt.attemptId))
+  check('intento de prueba de vida de otro propósito -> 409 LIVENESS_ATTEMPT_INVALID', r.status === 409 && r.code === 'LIVENESS_ATTEMPT_INVALID', `${r.status} ${r.code}`)
+  r = await mark(base(futureShift.id, (await markAttempt()).attemptId))
+  check('entrada antes de abrir la ventana -> 409 MARK_WINDOW_CLOSED', r.status === 409 && r.code === 'MARK_WINDOW_CLOSED' && r.json?.error?.details?.reason === 'NOT_YET_OPEN', `${r.status} ${r.code}`)
+  r = await mark(base(pastShift.id, (await markAttempt()).attemptId))
+  check('entrada con la ventana ya cerrada -> 409 MARK_WINDOW_CLOSED', r.status === 409 && r.code === 'MARK_WINDOW_CLOSED', `${r.status} ${r.code}`)
+  const plain = await ensureUser(PHASE3_EMAILS.plain, 'USER')
+  const otherArea = await prisma.attendanceArea.create({ data: { name: `${AREA_PREFIX} ajena`, ...center, radiusMeters: 50 } })
+  const otherAssignment = await prisma.attendanceAssignment.create({
+    data: { areaId: otherArea.id, userId: plain.id, shifts: { create: [{ startsAt: new Date(now - H), endsAt: new Date(now + 4 * H) }] } },
+    include: { shifts: true },
+  })
+  r = await mark(base(otherAssignment.shifts[0].id, (await markAttempt()).attemptId))
+  check('turno de otra persona -> 403 SHIFT_NOT_ASSIGNED', r.status === 403 && r.code === 'SHIFT_NOT_ASSIGNED', `${r.status} ${r.code}`)
+  check('...ninguna precondición dejó registro', (await countMarks()) === 0)
+
+  console.log('\n24. Matriz de resultados (Rekognition real)')
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { mocked: 'true' }))
+  check('ubicación simulada -> REJECTED (queda registro)', r.status === 201 && r.data?.mark?.status === 'REJECTED' && r.data.mark.reasons.includes('MOCK_LOCATION'), `${r.status} ${r.code} ${JSON.stringify(r.data?.mark)}`)
+  const rejectedRow = await prisma.attendanceMark.findUnique({ where: { id: r.data?.mark?.id } })
+  check('...sin guardar la selfie y sin abrir la entrada', rejectedRow?.selfieKey === null && r.data?.marking?.next === 'IN')
+
+  const phoneB = await loginAs('smoke-phone-OTRO')
+  r = await mark(base(openShift.id, (await markAttempt(phoneB.accessToken)).attemptId), phoneB.accessToken)
+  check('teléfono no vinculado -> REJECTED DEVICE_NOT_BOUND', r.status === 201 && r.data?.mark?.status === 'REJECTED' && r.data.mark.reasons.includes('DEVICE_NOT_BOUND'), `${r.status} ${r.code} ${JSON.stringify(r.data?.mark?.reasons)}`)
+
+  const inBody = base(openShift.id, (await markAttempt()).attemptId)
+  r = await mark(inBody)
+  const validIn = r.data?.mark
+  check('dentro del área y rostro correcto -> VALID, es ENTRADA', r.status === 201 && validIn?.status === 'VALID' && validIn?.type === 'IN', `${r.status} ${r.code} ${JSON.stringify(validIn)}`)
+  check('...similitud ≥ 90 % y hora oficial del servidor', validIn?.similarity >= 90 && Math.abs(new Date(validIn?.officialAt).getTime() - Date.now()) < 60_000, `${validIn?.similarity}`)
+  const inRow = await prisma.attendanceMark.findUnique({ where: { id: validIn?.id } })
+  check('...la selfie quedó en el bucket privado', !!inRow?.selfieKey && (await objectExists(inRow.selfieKey)))
+  check('...ahora toca SALIDA', r.data?.marking?.next === 'OUT' && !!r.data.marking.openEntryAt)
+
+  const before = await countMarks()
+  r = await mark({ ...inBody, attemptId: (await markAttempt()).attemptId })
+  check('reenviar la misma marcación (mismo clientMarkId) no duplica', r.status === 200 && r.data?.duplicate === true && r.data?.mark?.id === validIn?.id && (await countMarks()) === before, `${r.status} ${r.code}`)
+
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { latitude: north(300) }))
+  check('salida fuera del área -> PENDING_REVIEW OUT_OF_AREA, es SALIDA', r.data?.mark?.status === 'PENDING_REVIEW' && r.data.mark.type === 'OUT' && r.data.mark.reasons.includes('OUT_OF_AREA'), JSON.stringify(r.data?.mark ?? r.json))
+  check('...cerró el par: vuelve a tocar ENTRADA', r.data?.marking?.next === 'IN')
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { accuracy: 120 }))
+  check('GPS impreciso (120 m) -> PENDING_REVIEW LOW_GPS_ACCURACY', r.data?.mark?.status === 'PENDING_REVIEW' && r.data.mark.reasons.includes('LOW_GPS_ACCURACY'), JSON.stringify(r.data?.mark ?? r.json))
+  // Cerrar ese par para empezar los fallos con una entrada pendiente
+  await mark(base(openShift.id, (await markAttempt()).attemptId))
+
+  console.log('\n25. Rostro de otra persona: tres intentos y bloqueo')
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { photo: other }))
+  check('otra persona -> FACE_MISMATCH, no abre la entrada, quedan 2', r.data?.mark?.status === 'FACE_MISMATCH' && r.data.marking.next === 'IN' && r.data.marking.attemptsLeft === 2, JSON.stringify(r.data ?? r.json))
+  const mismatchRow = await prisma.attendanceMark.findUnique({ where: { id: r.data?.mark?.id } })
+  check('...la selfie del intento se guarda para la revisión', !!mismatchRow?.selfieKey)
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { photo: other }))
+  check('segundo intento fallido: queda 1', r.data?.marking?.attemptsLeft === 1, JSON.stringify(r.data?.marking))
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId, { photo: other }))
+  check('tercer intento fallido: el turno se bloquea', r.data?.mark?.status === 'FACE_MISMATCH' && r.data.marking.locked === true, JSON.stringify(r.data?.marking))
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId))
+  check('con el turno bloqueado -> 409 SHIFT_LOCKED (ni con el rostro correcto)', r.status === 409 && r.code === 'SHIFT_LOCKED', `${r.status} ${r.code}`)
+  r = await call('GET', '/assignments', { token: phone.accessToken })
+  const lockedShift = r.data?.assignments?.flatMap((a) => a.shifts).find((s) => s.id === openShift.id)
+  check('la app ve el turno bloqueado', lockedShift?.marking?.locked === true, JSON.stringify(lockedShift?.marking))
+
+  console.log('\n26. Web: turnos bloqueados y desbloqueo')
+  w = await web('/api/attendance/locks', viewerCookie)
+  const lock = w.json?.locks?.find((l) => l.user.id === user.id)
+  check('el aviso aparece en la web con los 3 intentos y la foto de referencia', w.status === 200 && lock?.attempts?.length === 3 && !!lock?.referenceEnrollmentId, `${w.status} ${JSON.stringify(lock?.attempts?.length)}`)
+  check('la lista no expone las claves de las fotos', !JSON.stringify(w.json).includes('marks/'))
+  w = await web(`/api/attendance/marks/${lock?.attempts?.[0]?.id}/photo`, viewerCookie)
+  const shot = w.json?.url ? await fetch(w.json.url) : null
+  check('la selfie del intento se ve con URL firmada y queda en la bitácora', shot?.status === 200 && !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_MARK_PHOTO_VIEWED', performedBy: viewer.id } })), `${w.status} ${shot?.status}`)
+  w = await web(`/api/attendance/locks/${lock?.id}/unlock`, viewerCookie, json('POST', { note: 'prueba' }))
+  check('con permiso de ver: desbloquear -> 403', w.status === 403, String(w.status))
+  w = await web(`/api/attendance/locks/${lock?.id}/unlock`, adminCookie, json('POST', { note: ' ' }))
+  check('desbloquear sin motivo -> 400', w.status === 400, String(w.status))
+  w = await web(`/api/attendance/locks/${lock?.id}/unlock`, adminCookie, json('POST', { note: 'Smoke: verificado por videollamada' }))
+  check('desbloquear con motivo -> 200 y queda en la bitácora', w.status === 200 && !!(await prisma.auditLog.findFirst({ where: { action: 'ATTENDANCE_SHIFT_UNLOCKED', entityId: lock?.id } })), String(w.status))
+  r = await mark(base(openShift.id, (await markAttempt()).attemptId))
+  check('tras desbloquear vuelve a marcar, con 3 intentos nuevos', r.data?.mark?.status === 'VALID' && r.data.marking.attemptsLeft === 3 && r.data.marking.locked === false, JSON.stringify(r.data?.marking ?? r.json))
+
+  console.log('\n27. Salida con la ventana cerrada y entrada abierta')
+  const oldIn = await prisma.livenessAttempt.create({ data: { userId: user.id, purpose: 'mark', method: 'device_challenge_v1', steps: ['blink'], expiresAt: new Date(now), usedAt: new Date(now) } })
+  await prisma.attendanceMark.create({
+    data: { userId: user.id, shiftId: pastShift.id, clientMarkId: clientId(), type: 'IN', status: 'VALID', reasons: [], officialAt: new Date(now - 19 * H), latitude: center.latitude, longitude: center.longitude, livenessMethod: 'device_challenge_v1', livenessAttemptId: oldIn.id },
+  })
+  r = await call('GET', '/assignments', { token: phone.accessToken })
+  const pending = r.data?.assignments?.flatMap((a) => a.shifts).find((s) => s.id === pastShift.id)
+  check('la app sigue mostrando el turno vencido con la entrada abierta (toca SALIDA)', pending?.marking?.next === 'OUT', JSON.stringify(pending ?? null))
+  r = await mark(base(pastShift.id, (await markAttempt()).attemptId))
+  check('la salida se permite aunque la ventana cerró', r.status === 201 && r.data?.mark?.type === 'OUT' && r.data.mark.status === 'VALID', `${r.status} ${r.code}`)
+
+  r = await call('GET', '/marks', { token: phone.accessToken })
+  check('historial: mis marcaciones, la más reciente primero', r.status === 200 && r.data?.marks?.length >= 8 && r.data.marks[0].type === 'OUT' && r.data.marks[0].area.name === MARK_AREA, `${r.status} ${r.data?.marks?.length}`)
+
+  w = await web(`/api/attendance/areas/${area.id}`, adminCookie, { method: 'DELETE' })
+  check('un área con marcaciones no se puede eliminar -> 409', w.status === 409 && /marcaciones/.test(w.json?.error ?? ''), `${w.status} ${w.json?.error}`)
+}
+
+async function cleanupPhase6() {
+  const users = await prisma.user.findMany({ where: { email: { in: [EMAIL, ...Object.values(PHASE3_EMAILS)] } }, select: { id: true } })
+  const ids = users.map((u) => u.id)
+  const c = r2()
+  const withPhoto = await prisma.attendanceMark.findMany({ where: { userId: { in: ids }, selfieKey: { not: null } }, select: { selfieKey: true } })
+  if (c) for (const { selfieKey } of withPhoto) await c.s3.send(new DeleteObjectCommand({ Bucket: c.bucket, Key: selfieKey })).catch(() => {})
+  await prisma.attendanceShiftLock.deleteMany({ where: { userId: { in: ids } } })
+  await prisma.attendanceMark.deleteMany({ where: { userId: { in: ids } } })
+  await prisma.auditLog.deleteMany({ where: { entityType: { in: ['attendance_mark', 'attendance_shift_lock'] }, performedBy: { in: ids } } })
+}
+
 async function cleanupPhase5() {
   await prisma.attendanceArea.deleteMany({ where: { name: { startsWith: AREA_PREFIX } } })
   await prisma.team.deleteMany({ where: { name: SMOKE_TEAM } })
@@ -686,6 +877,7 @@ main()
   })
   .finally(async () => {
     // Limpieza: los usuarios de prueba y todo lo suyo
+    await cleanupPhase6().catch((e) => console.error('Limpieza fase 6:', e.message))
     await cleanupPhase5().catch((e) => console.error('Limpieza fase 5:', e.message))
     await cleanupPhase4().catch((e) => console.error('Limpieza fase 4:', e.message))
     // Las entradas de bitácora de los registros faciales apuntan al id del registro

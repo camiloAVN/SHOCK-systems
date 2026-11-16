@@ -38,6 +38,20 @@ export function enrollmentImageKey(userId: string, enrollmentId: string): string
   return `enrollments/${safe(userId)}/${safe(enrollmentId)}.jpg`
 }
 
+/** Clave de la selfie de una marcación: marks/<usuario>/<marcación>.jpg */
+export function markImageKey(userId: string, markId: string): string {
+  const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, '')
+  return `marks/${safe(userId)}/${safe(markId)}.jpg`
+}
+
+/** Descarga un objeto del bucket privado (p. ej. la foto de referencia para compararla). */
+export async function getPrivateObject(key: string): Promise<Buffer> {
+  const { s3, bucket } = getClient()
+  const result = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+  if (!result.Body) throw new Error(`Objeto vacío en el bucket privado: ${key}`)
+  return Buffer.from(await result.Body.transformToByteArray())
+}
+
 export async function putPrivateObject(key: string, body: Buffer, contentType: string): Promise<void> {
   const { s3, bucket } = getClient()
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }))

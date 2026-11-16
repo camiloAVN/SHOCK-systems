@@ -19,6 +19,7 @@ import {
   Contact,
   ScanFace,
   MapPinned,
+  ShieldAlert,
   LucideIcon,
 } from 'lucide-react'
 import { SystemModule } from '@/lib/validations/user'
@@ -109,6 +110,13 @@ export const navSections: NavSection[] = [
         modules: ['asistencia_reportes'],
         hint: 'Aprobar las fotos de referencia de la app',
       },
+      {
+        name: 'Turnos bloqueados',
+        href: '/dashboard/asistencia/bloqueos',
+        icon: ShieldAlert,
+        modules: ['asistencia_reportes'],
+        hint: 'Desbloquear turnos tras rostros fallidos',
+      },
     ],
   },
   {
@@ -158,6 +166,7 @@ export const segmentLabels: Record<string, string> = {
   asistencia: 'Asistencia',
   registros: 'Registros faciales',
   areas: 'Áreas',
+  bloqueos: 'Turnos bloqueados',
   nueva: 'Nueva',
   nuevo: 'Nuevo',
   editar: 'Editar',
