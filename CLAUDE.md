@@ -163,6 +163,17 @@ R2_PUBLIC_URL="https://<public-bucket-or-custom-domain>"
 R2_REGION="auto"
 R2_PRODUCTS_PREFIX="products"
 R2_AVATARS_PREFIX="avatars"       # optional
+
+# Attendance app (mobile API) — all required in production (Railway)
+MOBILE_JWT_SECRET="..."           # ≥ 32 chars, different from AUTH_SECRET
+R2_ATT_ACCOUNT_ID="..."           # PRIVATE bucket for face photos / selfies
+R2_ATT_ACCESS_KEY_ID="..."
+R2_ATT_SECRET_ACCESS_KEY="..."
+R2_ATT_BUCKET="xenith-asistencia"
+AWS_REGION="us-east-1"            # Rekognition (IAM user: CompareFaces + DetectFaces only)
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+MAP_STYLE_URL="..."               # optional; default OpenFreeMap style in lib/attendance/config.ts
 ```
 
 ## Deployment (Railway) & Database Safety
@@ -171,6 +182,9 @@ R2_AVATARS_PREFIX="avatars"       # optional
 - `railway.toml` is config-as-code (fields set there are locked in the Railway dashboard): `preDeployCommand = ["npx prisma migrate deploy"]` (must EXIT — never start the server there, or deploys hang), `startCommand = "npm run start"`, healthcheck `/api/health` (public, runs `SELECT 1`).
 - `postgres.railway.internal` only resolves inside Railway; from a local machine you need the TCP-proxy public URL (`DATABASE_PUBLIC_URL`), which is disabled by default.
 - Production URL: https://www.shock-producciones.com
+- **Railway variable edits are STAGED** until "Deploy" is pressed in the dashboard. A missing/unapplied `MOBILE_JWT_SECRET` makes every mobile endpoint answer `SERVER_MISCONFIGURED` (the app shows "El servidor no está disponible").
+- Attendance Phases 1–7 are live in production since 2026-11-16 (main `d1e9fba`).
+- The production Android APK is built in the app repo (`C:\dev\xenith-asistencia`, see `docs/fase7-resultados.md` §4) with `API_BASE_URL=https://www.shock-producciones.com` embedded at build time. Release builds run R8: the app's `plugins/with-proguard-keep-rules.js` keeps the Nitro classes (vision-camera face detector), otherwise the face camera crashes only in release.
 - The Railway CLI (`railway.exe`) is blocked on the dev machine by Windows Smart App Control ("Una directiva de Control de aplicaciones bloqueó este archivo") — use the Railway dashboard instead.
 
 ## Dev Workflow Gotchas (Windows)
