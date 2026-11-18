@@ -29,6 +29,8 @@ const queueSelect = {
   distanceMeters: true,
   similarity: true,
   selfieKey: true,
+  offline: true,
+  createdAt: true,
   user: { select: { id: true, name: true, email: true, cedula: true } },
   shift: {
     select: {

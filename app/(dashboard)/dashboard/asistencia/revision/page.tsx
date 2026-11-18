@@ -20,6 +20,9 @@ type ReviewMark = {
   accuracyMeters: number | null
   distanceMeters: number | null
   similarity: number | null
+  /** Hecha sin conexión (Fase 8); createdAt = cuándo llegó al servidor */
+  offline: boolean
+  createdAt: string
   hasPhoto: boolean
   user: { id: string; name: string | null; email: string; cedula: string | null }
   area: { id: string; name: string; latitude: number; longitude: number; radiusMeters: number }
@@ -38,6 +41,9 @@ function reasonLines(m: ReviewMark): string[] {
   }
   if (m.reasons.includes('LOW_GPS_ACCURACY')) {
     out.push(m.accuracyMeters === null ? 'GPS sin dato de precisión' : `GPS impreciso: ±${Math.round(m.accuracyMeters)} m`)
+  }
+  if (m.reasons.includes('TIME_UNVERIFIED')) {
+    out.push('Hora sin verificar: se marcó sin conexión y el teléfono se reinició antes (o no tenía hora del servidor). La hora mostrada es la del teléfono.')
   }
   return out
 }
@@ -80,6 +86,7 @@ function ReviewCard({
             {m.area.name} · turno {describe(new Date(m.shift.startsAt))} – {describe(new Date(m.shift.endsAt)).split(', ')[1]}
           </p>
           <p className="text-sm text-gray-200">Marcó el {describe(new Date(m.officialAt))}</p>
+          {m.offline && <p className="text-sm text-gray-400">Sin conexión · llegó al servidor el {describe(new Date(m.createdAt))}</p>}
           {reasonLines(m).map((line) => (
             <p key={line} className="text-sm text-orange-300">
               {line}

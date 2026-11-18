@@ -196,6 +196,7 @@ async function main() {
   await fase5(user)
   await fase6(user)
   await fase7(user)
+  await fase8(user)
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -981,6 +982,121 @@ async function fase7(user) {
   w = await web(`/api/attendance/report?${q}`, viewerCookie)
   const r4b = byShift(s4.id)
   check('entrada rechazada por el supervisor: el par no suma horas ni extra', r4b?.workedMinutes === 0 && r4b.overtimeMinutes === 0 && r4b.rejectedMarks === 1 && r4b.status === 'absent', JSON.stringify(r4b))
+}
+
+// ───────────────────────── Fase 8: marcación sin conexión ─────────────────────────
+
+async function fase8(user) {
+  if (![SAME_PERSON_IMAGE].every((f) => fs.existsSync(f)) || !r2() || !process.env.AWS_ACCESS_KEY_ID) {
+    console.log('\n32-35. Sin conexión: OMITIDO (faltan fotos de prueba o las claves de .env.local)')
+    failed++
+    return
+  }
+  const same = fs.readFileSync(SAME_PERSON_IMAGE)
+  const H = 3_600_000
+  const now = Date.now()
+  const iso = (ms) => new Date(ms).toISOString()
+  const center = { latitude: 4.6097, longitude: -74.0817 }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+  console.log('\n32. Ancla de hora firmada')
+  // El teléfono de la Fase 6 sigue vinculado y con el registro facial aprobado
+  const phone = await loginAs('smoke-phone-MARK')
+  const area = await prisma.attendanceArea.create({ data: { name: `${AREA_PREFIX} sin conexión`, ...center, radiusMeters: 50 } })
+  const assignment = await prisma.attendanceAssignment.create({
+    data: {
+      areaId: area.id,
+      userId: user.id,
+      shifts: {
+        create: [
+          { startsAt: new Date(now - 20 * H), endsAt: new Date(now - 12 * H) }, // ventana cerró hace 6 h
+          { startsAt: new Date(now - H), endsAt: new Date(now + 4 * H) }, // abierto
+          { startsAt: new Date(now + 6 * H), endsAt: new Date(now + 10 * H) }, // aún no abre
+        ],
+      },
+    },
+    include: { shifts: { orderBy: { startsAt: 'asc' } } },
+  })
+  const [pastShift, openShift, futureShift] = assignment.shifts
+  let r = await call('GET', '/assignments', { token: phone.accessToken })
+  const anchor = r.data?.timeAnchor
+  check('GET /assignments incluye el ancla de hora firmada', r.status === 200 && /^v1\.\d+\.[A-Za-z0-9_-]+$/.test(anchor?.token ?? '') && anchor?.serverTime === r.data.serverTime, JSON.stringify(anchor))
+  const anchorMs = Number(anchor?.token?.split('.')[1])
+
+  const mark = async (body) => {
+    const form = new FormData()
+    for (const [k, v] of Object.entries(body)) if (k !== 'photo' && v !== undefined && v !== null) form.append(k, String(v))
+    form.append('photo', new Blob([body.photo], { type: 'image/jpeg' }), 'selfie.jpg')
+    const res = await fetch(`${API}/marks`, { method: 'POST', headers: { authorization: `Bearer ${phone.accessToken}`, 'x-forwarded-for': FAKE_IP }, body: form })
+    const json = await res.json().catch(() => null)
+    return { status: res.status, data: json?.data, code: json?.error?.code, json }
+  }
+  let seq = 0
+  const offline = (shiftId, extra = {}) => ({
+    clientMarkId: `smokeoff${Date.now()}${++seq}`,
+    shiftId,
+    offline: 'true',
+    livenessSteps: 'turn_left,blink',
+    timeAnchor: anchor?.token,
+    latitude: center.latitude,
+    longitude: center.longitude,
+    accuracy: 8,
+    mocked: 'false',
+    deviceTime: new Date().toISOString(),
+    photo: same,
+    ...extra,
+  })
+
+  console.log('\n33. Validación')
+  r = await mark({ ...offline(openShift.id), livenessSteps: undefined })
+  check('sin conexión y sin el reto -> 400 VALIDATION_ERROR', r.status === 400 && r.code === 'VALIDATION_ERROR', `${r.status} ${r.code}`)
+  r = await mark({ ...offline(openShift.id), offline: undefined, livenessSteps: undefined })
+  check('en línea sin attemptId -> 400 VALIDATION_ERROR', r.status === 400 && r.code === 'VALIDATION_ERROR', `${r.status} ${r.code}`)
+  r = await mark(offline(openShift.id, { livenessSteps: 'blink,saltar' }))
+  check('reto con un paso desconocido -> 400', r.status === 400, `${r.status} ${r.code}`)
+
+  console.log('\n34. Hora calculada con el ancla (Rekognition real)')
+  await sleep(3000)
+  // Marcó 1 s después del ancla y llega ~2 s más tarde; el reloj del teléfono dice otra cosa
+  const inBody = offline(openShift.id, { elapsedSinceAnchorMs: 1000, deviceTime: iso(now - 5 * H) })
+  r = await mark(inBody)
+  const offIn = r.data?.mark
+  check('entrada sin conexión con hora verificable -> VALID, ENTRADA, marcada como sin conexión', r.status === 201 && offIn?.status === 'VALID' && offIn?.type === 'IN' && offIn?.offline === true, `${r.status} ${r.code} ${JSON.stringify(offIn)}`)
+  check('...hora oficial = ancla + tiempo transcurrido (no la del teléfono ni la de llegada)', new Date(offIn?.officialAt).getTime() === anchorMs + 1000, `${offIn?.officialAt} vs ${iso(anchorMs + 1000)}`)
+  check('...la respuesta trae un ancla nueva', /^v1\./.test(r.data?.timeAnchor?.token ?? ''))
+  const offRow = await prisma.attendanceMark.findUnique({ where: { id: offIn?.id }, include: { livenessAttempt: true } })
+  check('...queda la prueba de vida del teléfono (método sin conexión, su reto)', offRow?.livenessMethod === 'device_challenge_offline_v1' && offRow?.livenessAttempt?.steps?.join(',') === 'turn_left,blink' && !!offRow?.livenessAttempt?.usedAt, JSON.stringify(offRow?.livenessAttempt))
+  check('...con la selfie en el bucket privado', !!offRow?.selfieKey && (await objectExists(offRow.selfieKey)))
+
+  const count = () => prisma.attendanceMark.count({ where: { userId: user.id } })
+  const before = await count()
+  r = await mark(inBody)
+  check('la cola reenvía la misma marcación -> no duplica', r.status === 200 && r.data?.duplicate === true && r.data.mark.id === offIn?.id && (await count()) === before, `${r.status} ${r.code}`)
+
+  console.log('\n35. Hora sin verificar -> revisión')
+  // Reinicio del teléfono: la app no puede saber el tiempo transcurrido
+  const deviceOut = new Date(Date.now() - 1000).toISOString()
+  r = await mark(offline(openShift.id, { deviceTime: deviceOut }))
+  check('salida sin tiempo transcurrido -> PENDING_REVIEW TIME_UNVERIFIED, es SALIDA', r.data?.mark?.status === 'PENDING_REVIEW' && r.data.mark.type === 'OUT' && r.data.mark.reasons.includes('TIME_UNVERIFIED'), JSON.stringify(r.data?.mark ?? r.json))
+  check('...con la hora que decía el teléfono', r.data?.mark?.officialAt === deviceOut, `${r.data?.mark?.officialAt} vs ${deviceOut}`)
+  const [v, ms] = anchor.token.split('.')
+  r = await mark(offline(openShift.id, { timeAnchor: `${v}.${ms - 3_600_000}.firmaFalsa`, elapsedSinceAnchorMs: 1000 }))
+  check('ancla alterada -> TIME_UNVERIFIED (no se usa su hora)', r.data?.mark?.status === 'PENDING_REVIEW' && r.data.mark.reasons.includes('TIME_UNVERIFIED'), JSON.stringify(r.data?.mark ?? r.json))
+  await mark(offline(openShift.id, { elapsedSinceAnchorMs: 1000 })) // cierra el par
+  r = await mark(offline(openShift.id, { elapsedSinceAnchorMs: 30 * 60_000 }))
+  check('tiempo transcurrido imposible (hora en el futuro) -> TIME_UNVERIFIED', r.data?.mark?.reasons?.includes('TIME_UNVERIFIED'), JSON.stringify(r.data?.mark ?? r.json))
+
+  console.log('\n36. La ventana se evalúa con la hora de la marcación')
+  r = await mark(offline(futureShift.id, { timeAnchor: undefined }))
+  check('turno que aún no abría a esa hora -> 409 MARK_WINDOW_CLOSED (sin registro)', r.status === 409 && r.code === 'MARK_WINDOW_CLOSED', `${r.status} ${r.code}`)
+  r = await mark(offline(pastShift.id, { timeAnchor: undefined, deviceTime: iso(now - 19 * H) }))
+  check('marcó dentro de la ventana de un turno ya cerrado y llegó tarde -> se acepta, a revisión', r.status === 201 && r.data?.mark?.type === 'IN' && r.data.mark.status === 'PENDING_REVIEW' && r.data.mark.officialAt === iso(now - 19 * H), `${r.status} ${r.code} ${JSON.stringify(r.data?.mark)}`)
+
+  console.log('\n37. Web: la bandeja muestra que fue sin conexión')
+  const adminCookie = await webLogin(PHASE3_EMAILS.admin)
+  const w = await web('/api/attendance/reviews', adminCookie)
+  const unverified = (w.json?.marks ?? []).find((m) => m.user.id === user.id && m.reasons.includes('TIME_UNVERIFIED'))
+  check('la marcación con hora sin verificar está en la bandeja, con offline y la hora de llegada', w.status === 200 && unverified?.offline === true && !!unverified?.createdAt, `${w.status} ${JSON.stringify(unverified ?? null).slice(0, 200)}`)
 }
 
 async function cleanupPhase6() {

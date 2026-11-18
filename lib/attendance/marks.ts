@@ -2,8 +2,9 @@ import { randomUUID } from 'crypto'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { ATTENDANCE_CONFIG } from '@/lib/attendance/config'
-import { consumeAttempt } from '@/lib/attendance/enrollment'
+import { consumeAttempt, type LivenessStep } from '@/lib/attendance/enrollment'
 import {
+  applyTimeVerification,
   canMarkNow,
   COUNTED_STATUSES,
   evaluateLocation,
@@ -17,6 +18,8 @@ import {
 } from '@/lib/attendance/mark-rules'
 import { compareFaces, isJpeg } from '@/lib/attendance/rekognition'
 import { shiftWindow } from '@/lib/attendance/shifts'
+import { resolveOfflineTime, signTimeAnchor, verifyTimeAnchor } from '@/lib/attendance/time-anchor'
+import { mobileSecret } from '@/lib/mobile/jwt'
 import { deletePrivateObject, getPrivateObject, markImageKey, putPrivateObject } from '@/lib/storage/r2-private'
 import { MobileApiError } from '@/lib/mobile/errors'
 
@@ -24,6 +27,14 @@ import { MobileApiError } from '@/lib/mobile/errors'
  * Marcación de asistencia en línea (Fase 6). El servidor decide todo: tipo (entrada/salida),
  * ventana, rostro, distancia y hora oficial. Reglas puras en mark-rules.ts.
  */
+
+/** Prueba de vida hecha sin conexión: el orden del reto lo eligió el teléfono, no el servidor */
+export const OFFLINE_LIVENESS_METHOD = 'device_challenge_offline_v1'
+
+/** Ancla de hora firmada para esta persona (la app la usa para marcar sin conexión, Fase 8). */
+export function timeAnchorFor(userId: string, now: Date = new Date()) {
+  return { serverTime: now.toISOString(), token: signTimeAnchor(mobileSecret(), userId, now.getTime()) }
+}
 
 const lockKey = (userId: string, shiftId: string) => `${userId}:${shiftId}`
 
@@ -149,7 +160,13 @@ export type SubmitMarkParams = {
   installationId: string | null
   clientMarkId: string
   shiftId: string
-  attemptId: string
+  /** Intento de prueba de vida emitido por el servidor (marcación en línea) */
+  attemptId: string | null
+  /**
+   * Marcación hecha sin conexión y enviada después (Fase 8). La hora oficial se calcula con el
+   * ancla; la prueba de vida la hizo el teléfono con un reto propio (`steps`).
+   */
+  offline: { timeAnchor: string | null; elapsedSinceAnchorMs: number | null; steps: LivenessStep[] } | null
   latitude: number
   longitude: number
   accuracyMeters: number | null
@@ -172,6 +189,26 @@ export async function submitMark(p: SubmitMarkParams) {
     return { mark: serializeMark(existing), state, duplicate: true }
   }
 
+  // Hora de la marcación: ahora, o la calculada con el ancla si se hizo sin conexión
+  const receivedAt = new Date()
+  let markAt = receivedAt
+  let timeVerified = true
+  if (p.offline) {
+    const anchorMs = p.offline.timeAnchor ? verifyTimeAnchor(mobileSecret(), p.userId, p.offline.timeAnchor) : null
+    const time = resolveOfflineTime({
+      anchorMs,
+      anchorInvalid: !!p.offline.timeAnchor && anchorMs === null,
+      elapsedMs: p.offline.elapsedSinceAnchorMs,
+      deviceAt: p.deviceAt,
+      receivedAt,
+    })
+    markAt = time.officialAt
+    timeVerified = time.verified
+    if (!time.verified) console.info(`[MARKS] Hora sin verificar (${time.problem}) en marcación sin conexión de ${p.userId}`)
+  } else if (!p.attemptId) {
+    throw new MobileApiError('LIVENESS_ATTEMPT_INVALID')
+  }
+
   // 2. Precondiciones: sin ellas no se puede marcar (no queda registro)
   if (!p.consentAccepted) throw new MobileApiError('CONSENT_REQUIRED')
   const enrollment = await prisma.faceEnrollment.findFirst({
@@ -184,7 +221,7 @@ export async function submitMark(p: SubmitMarkParams) {
 
   const before = (await markingStates(p.userId, [shift.id])).get(shift.id)!
   if (before.locked) throw new MobileApiError('SHIFT_LOCKED')
-  const window = canMarkNow(before.next, shift, new Date())
+  const window = canMarkNow(before.next, shift, markAt)
   if (!window.ok) {
     const { opensAt, closesAt } = shiftWindow(shift)
     throw new MobileApiError(
@@ -195,7 +232,8 @@ export async function submitMark(p: SubmitMarkParams) {
   }
 
   // 3. Intento de prueba de vida (un solo uso) y foto
-  const attempt = await consumeAttempt(p.attemptId, p.userId, 'mark')
+  // (Sin conexión no hay intento del servidor: se registra uno con el reto del teléfono al guardar)
+  const attempt = p.offline ? null : await consumeAttempt(p.attemptId!, p.userId, 'mark')
   if (p.image.length > ATTENDANCE_CONFIG.face.selfieMaxBytes) throw new MobileApiError('IMAGE_TOO_LARGE')
   if (!isJpeg(p.image)) throw new MobileApiError('INVALID_IMAGE')
 
@@ -217,7 +255,10 @@ export async function submitMark(p: SubmitMarkParams) {
       status = 'FACE_MISMATCH'
       reasons = [match.reason!]
     } else {
-      const location = evaluateLocation({ latitude: p.latitude, longitude: p.longitude, accuracyMeters: p.accuracyMeters }, area)
+      const location = applyTimeVerification(
+        evaluateLocation({ latitude: p.latitude, longitude: p.longitude, accuracyMeters: p.accuracyMeters }, area),
+        timeVerified
+      )
       status = location.status
       reasons = location.reasons
       distance = location.distanceMeters
@@ -240,7 +281,14 @@ export async function submitMark(p: SubmitMarkParams) {
       const state = (await markingStates(p.userId, [shift.id], tx)).get(shift.id)!
       if (state.locked) throw new MobileApiError('SHIFT_LOCKED')
       const type = state.next
-      if (COUNTED_STATUSES.includes(status) && !canMarkNow(type, shift, new Date()).ok) throw new MobileApiError('MARK_WINDOW_CLOSED')
+      if (COUNTED_STATUSES.includes(status) && !canMarkNow(type, shift, markAt).ok) throw new MobileApiError('MARK_WINDOW_CLOSED')
+
+      const livenessAttempt =
+        attempt ??
+        (await tx.livenessAttempt.create({
+          data: { userId: p.userId, purpose: 'mark', method: OFFLINE_LIVENESS_METHOD, steps: p.offline!.steps, expiresAt: markAt, usedAt: receivedAt },
+          select: { id: true, method: true },
+        }))
 
       const mark = await tx.attendanceMark.create({
         data: {
@@ -251,6 +299,8 @@ export async function submitMark(p: SubmitMarkParams) {
           type,
           status,
           reasons,
+          officialAt: markAt,
+          offline: !!p.offline,
           deviceAt: p.deviceAt,
           latitude: p.latitude,
           longitude: p.longitude,
@@ -260,8 +310,8 @@ export async function submitMark(p: SubmitMarkParams) {
           similarity,
           selfieKey,
           selfieBytes: selfieKey ? p.image.length : null,
-          livenessMethod: attempt.method,
-          livenessAttemptId: attempt.id,
+          livenessMethod: livenessAttempt.method,
+          livenessAttemptId: livenessAttempt.id,
           installationId: p.installationId,
         },
         select: markSelect,

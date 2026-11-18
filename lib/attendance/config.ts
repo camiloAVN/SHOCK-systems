@@ -45,6 +45,18 @@ export const ATTENDANCE_CONFIG = {
   },
 
   /**
+   * Marcación sin conexión (Fase 8). La app guarda la marcación y la envía al volver la señal.
+   * La hora se calcula con un "ancla" firmada por el servidor + el reloj monotónico del teléfono
+   * (tiempo desde el encendido, que no cambia aunque la persona mueva la hora del teléfono).
+   */
+  offline: {
+    /** Un ancla más vieja que esto ya no sirve para verificar la hora (la marcación va a revisión) */
+    anchorMaxAgeMs: 7 * DAY,
+    /** Margen por latencia y deriva del reloj: la hora calculada puede quedar hasta esto después de la recepción */
+    futureToleranceMs: 2 * MINUTE,
+  },
+
+  /**
    * Calidad mínima de la foto de referencia (registro facial), medida con DetectFaces.
    * Valores iniciales; se guardan las métricas de cada envío para ajustarlos con datos reales.
    */

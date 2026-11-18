@@ -9,7 +9,15 @@ import { shiftPhase, type ShiftTimes } from './shifts'
 
 export type MarkType = 'IN' | 'OUT'
 export type MarkStatus = 'VALID' | 'PENDING_REVIEW' | 'FACE_MISMATCH' | 'REJECTED'
-export type MarkReason = 'OUT_OF_AREA' | 'LOW_GPS_ACCURACY' | 'FACE_MISMATCH' | 'NO_FACE' | 'MOCK_LOCATION' | 'DEVICE_NOT_BOUND'
+export type MarkReason =
+  | 'OUT_OF_AREA'
+  | 'LOW_GPS_ACCURACY'
+  | 'FACE_MISMATCH'
+  | 'NO_FACE'
+  | 'MOCK_LOCATION'
+  | 'DEVICE_NOT_BOUND'
+  /** Sin conexión y la hora no se pudo verificar (p. ej. el teléfono se reinició): hora del teléfono */
+  | 'TIME_UNVERIFIED'
 
 /** Solo estas marcaciones cuentan para el par entrada/salida */
 export const COUNTED_STATUSES: MarkStatus[] = ['VALID', 'PENDING_REVIEW']
@@ -62,6 +70,18 @@ export function evaluateLocation(
   if (distance > area.radiusMeters) reasons.push('OUT_OF_AREA')
   if (position.accuracyMeters === null || position.accuracyMeters > ATTENDANCE_CONFIG.geo.maxGpsAccuracyMeters) reasons.push('LOW_GPS_ACCURACY')
   return { status: reasons.length ? 'PENDING_REVIEW' : 'VALID', reasons, distanceMeters: Math.round(distance * 10) / 10 }
+}
+
+/**
+ * Marcación sin conexión: con el rostro correcto, la hora no verificable la manda a revisión.
+ * Una marcación sin conexión con hora verificada sigue las mismas reglas que en línea (2.8).
+ */
+export function applyTimeVerification<T extends { status: 'VALID' | 'PENDING_REVIEW'; reasons: MarkReason[] }>(
+  result: T,
+  timeVerified: boolean
+): T {
+  if (timeVerified) return result
+  return { ...result, status: 'PENDING_REVIEW', reasons: [...result.reasons, 'TIME_UNVERIFIED'] }
 }
 
 /**

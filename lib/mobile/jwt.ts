@@ -28,6 +28,11 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
+/** El mismo secreto, para otras firmas de la API móvil (p. ej. el ancla de hora de la Fase 8). */
+export function mobileSecret(): Uint8Array {
+  return getSecret()
+}
+
 /** Lanza SERVER_MISCONFIGURED si el secreto no es utilizable. Llamar antes de crear o rotar sesiones. */
 export function assertJwtConfigured(): void {
   getSecret()

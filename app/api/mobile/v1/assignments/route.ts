@@ -1,4 +1,5 @@
 import { myAssignments } from '@/lib/attendance/areas'
+import { timeAnchorFor } from '@/lib/attendance/marks'
 import { mobileOk } from '@/lib/mobile/errors'
 import { authedMobileRoute } from '@/lib/mobile/handler'
 
@@ -9,5 +10,6 @@ export const dynamic = 'force-dynamic'
 export const GET = authedMobileRoute(async (_request, actor) => {
   const now = new Date()
   const assignments = await myAssignments(actor.userId, now)
-  return mobileOk({ serverTime: now.toISOString(), assignments })
+  // timeAnchor: hora firmada para calcular la hora de las marcaciones sin conexión (Fase 8)
+  return mobileOk({ serverTime: now.toISOString(), timeAnchor: timeAnchorFor(actor.userId, now), assignments })
 })
