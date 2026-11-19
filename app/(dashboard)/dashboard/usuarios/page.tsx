@@ -71,6 +71,7 @@ export default function UsersPage() {
     position: '',
     cedula: '',
     phone: '',
+    birthDate: '',
   })
   const [permissions, setPermissions] = useState<PermissionMap>(getDefaultPermissions())
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -158,6 +159,7 @@ export default function UsersPage() {
             position: formData.position || null,
             cedula: formData.cedula.trim() || null,
             phone: formData.phone.trim() || null,
+            birthDate: formData.birthDate || null,
             permissions: permissionsArray,
             ...(formData.password && { password: formData.password }),
           }
@@ -166,6 +168,7 @@ export default function UsersPage() {
             position: formData.position || null,
             cedula: formData.cedula.trim() || null,
             phone: formData.phone.trim() || null,
+            birthDate: formData.birthDate || null,
             permissions: permissionsArray,
           }
 
@@ -244,6 +247,7 @@ export default function UsersPage() {
       position: user.position || '',
       cedula: user.cedula || '',
       phone: user.phone || '',
+      birthDate: user.birthDate ? user.birthDate.slice(0, 10) : '',
     })
 
     // Cargar permisos del usuario
@@ -271,6 +275,7 @@ export default function UsersPage() {
       position: '',
       cedula: '',
       phone: '',
+      birthDate: '',
     })
     setPermissions(getDefaultPermissions())
     setEditingUser(null)
@@ -583,6 +588,13 @@ export default function UsersPage() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     leftIcon={<Phone className="w-4 h-4" />}
+                  />
+
+                  <Input
+                    label="Fecha de nacimiento"
+                    type="date"
+                    value={formData.birthDate}
+                    onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                   />
 
                   <Select

@@ -29,6 +29,8 @@ export const MOBILE_ERROR_STATUS = {
   SHIFT_NOT_ASSIGNED: 403,
   SHIFT_LOCKED: 409,
   MARK_WINDOW_CLOSED: 409,
+  CEDULA_TAKEN: 409,
+  CEDULA_LOCKED: 409,
   SERVER_MISCONFIGURED: 500,
   INTERNAL_ERROR: 500,
 } as const
@@ -60,6 +62,8 @@ const DEFAULT_MESSAGES: Record<MobileErrorCode, string> = {
   SHIFT_NOT_ASSIGNED: 'Este turno no está asignado a tu cuenta',
   SHIFT_LOCKED: 'Este turno está bloqueado por intentos fallidos de rostro. Un supervisor debe revisarlo',
   MARK_WINDOW_CLOSED: 'Fuera del horario en que se puede marcar este turno',
+  CEDULA_TAKEN: 'Esa cédula ya está registrada en otra cuenta. Si es tuya, habla con un administrador',
+  CEDULA_LOCKED: 'La cédula ya quedó registrada. Si está mal, pídele a un administrador que la corrija',
   SERVER_MISCONFIGURED: 'El servidor no está configurado para la app',
   INTERNAL_ERROR: 'Error interno',
 }

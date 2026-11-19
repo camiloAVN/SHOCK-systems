@@ -1,33 +1,20 @@
-import { prisma } from '@/lib/db/prisma'
-import { getActivation } from '@/lib/mobile/activation'
-import { MobileApiError, mobileOk } from '@/lib/mobile/errors'
+import { getRequestClientInfo } from '@/lib/audit/log'
+import { mobileOk } from '@/lib/mobile/errors'
 import { authedMobileRoute } from '@/lib/mobile/handler'
+import { loadMe, profileUpdateSchema, updateOwnProfile } from '@/lib/mobile/profile'
 
 export const dynamic = 'force-dynamic'
 
 // GET /api/mobile/v1/me — perfil del usuario del token y su estado de activación.
 // El id sale SIEMPRE del token, nunca de la URL ni del cuerpo.
 export const GET = authedMobileRoute(async (_request, actor) => {
-  const user = await prisma.user.findUnique({
-    where: { id: actor.userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      position: true,
-      cedula: true,
-      phone: true,
-      image: true,
-      permissions: { select: { module: true, canView: true, canEdit: true } },
-    },
-  })
-  if (!user) throw new MobileApiError('TOKEN_INVALID')
+  return mobileOk(await loadMe(actor.userId, actor.installationId))
+})
 
-  return mobileOk({
-    ...user,
-    // SUPERADMIN tiene todos los permisos sin filas en user_permissions
-    isSuperAdmin: user.role === 'SUPERADMIN',
-    activation: await getActivation(actor.userId, actor.installationId),
-  })
+// PATCH /api/mobile/v1/me — el empleado completa o corrige sus datos:
+// cédula (solo si aún no tiene), celular y fecha de nacimiento.
+export const PATCH = authedMobileRoute(async (request, actor) => {
+  const input = profileUpdateSchema().parse(await request.json().catch(() => null))
+  await updateOwnProfile(actor.userId, input, getRequestClientInfo(request))
+  return mobileOk(await loadMe(actor.userId, actor.installationId))
 })

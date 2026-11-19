@@ -22,6 +22,7 @@ model User {
   position      String? // Cargo/puesto del usuario
   cedula        String?   @unique // Documento de identidad del empleado
   phone         String? // Teléfono del empleado
+  birthDate     DateTime? @db.Date // Fecha de nacimiento (la llena el empleado en la app)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

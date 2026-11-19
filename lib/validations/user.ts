@@ -101,6 +101,17 @@ const phoneSchema = z.preprocess(
     .optional()
 )
 
+// Fecha de nacimiento AAAA-MM-DD (la llena el empleado en la app; el admin puede corregirla)
+const birthDateSchema = z.preprocess(
+  emptyToNull,
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento invalida')
+    .refine((v) => !Number.isNaN(new Date(`${v}T00:00:00Z`).getTime()), 'Fecha de nacimiento invalida')
+    .nullable()
+    .optional()
+)
+
 export const createUserSchema = z.object({
   name: z
     .string()
@@ -125,6 +136,7 @@ export const createUserSchema = z.object({
     .nullable(),
   cedula: cedulaSchema,
   phone: phoneSchema,
+  birthDate: birthDateSchema,
   permissions: z.array(permissionSchema).optional(),
 })
 
@@ -155,6 +167,7 @@ export const updateUserSchema = z.object({
     .nullable(),
   cedula: cedulaSchema,
   phone: phoneSchema,
+  birthDate: birthDateSchema,
   isActive: z.boolean().optional(),
   permissions: z.array(permissionSchema).optional(),
 })
@@ -178,6 +191,8 @@ export type User = {
   position: string | null
   cedula?: string | null
   phone?: string | null
+  /** ISO; solo importa la fecha (AAAA-MM-DD) */
+  birthDate?: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date

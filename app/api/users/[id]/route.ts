@@ -99,6 +99,7 @@ export async function GET(
         position: true,
         cedula: true,
         phone: true,
+        birthDate: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -235,6 +236,9 @@ export async function PUT(
       ...(validatedData.position !== undefined && { position: validatedData.position }),
       ...(validatedData.cedula !== undefined && { cedula: validatedData.cedula }),
       ...(validatedData.phone !== undefined && { phone: validatedData.phone }),
+      ...(validatedData.birthDate !== undefined && {
+        birthDate: validatedData.birthDate ? new Date(`${validatedData.birthDate}T00:00:00Z`) : null,
+      }),
       ...(validatedData.isActive !== undefined && { isActive: validatedData.isActive }),
     }
 
@@ -276,6 +280,7 @@ export async function PUT(
         position: true,
         cedula: true,
         phone: true,
+        birthDate: true,
         image: true,
         isActive: true,
         createdAt: true,

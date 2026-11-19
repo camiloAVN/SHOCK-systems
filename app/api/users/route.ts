@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         position: true,
         cedula: true,
         phone: true,
+        birthDate: true,
         image: true,
         isActive: true,
         createdAt: true,
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
         position: validatedData.position || null,
         cedula: validatedData.cedula ?? null,
         phone: validatedData.phone ?? null,
+        birthDate: validatedData.birthDate ? new Date(`${validatedData.birthDate}T00:00:00Z`) : null,
         ...(permissionsData && permissionsData.length > 0 && {
           permissions: {
             create: permissionsData,
@@ -176,6 +178,7 @@ export async function POST(request: NextRequest) {
         position: true,
         cedula: true,
         phone: true,
+        birthDate: true,
         image: true,
         isActive: true,
         createdAt: true,

@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { DashboardHeader } from '@/components/layout/DashboardHeader'
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav'
 import { RouteGuard } from '@/components/auth/RouteGuard'
+import { SessionImageSync } from '@/components/auth/SessionImageSync'
 
 export default function DashboardLayout({
   children,
@@ -22,6 +23,7 @@ export default function DashboardLayout({
 
   return (
     <div className="dashboard-bg flex min-h-screen">
+      <SessionImageSync />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="min-w-0 flex-1 lg:pl-64">
