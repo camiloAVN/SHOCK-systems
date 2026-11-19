@@ -21,6 +21,7 @@ import {
   Briefcase,
   IdCard,
   Phone,
+  Smartphone,
 } from 'lucide-react'
 import { MobileAppStatus } from '@/components/users/MobileAppStatus'
 import { format } from 'date-fns'
@@ -58,6 +59,8 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  // La cuenta del superadmin no se edita, pero su app móvil sí se gestiona (p. ej. desvincular su teléfono)
+  const [mobileOnlyUser, setMobileOnlyUser] = useState<User | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -433,6 +436,11 @@ export default function UsersPage() {
                         })}
                       </td>
                       <td>
+                        {user.email === SUPERADMIN_EMAIL && isSuperAdmin && (
+                          <Button variant="ghost" size="sm" onClick={() => setMobileOnlyUser(user)} title="App móvil">
+                            <Smartphone className="w-4 h-4" />
+                          </Button>
+                        )}
                         {user.email !== SUPERADMIN_EMAIL && (
                           <div className="flex items-center gap-2">
                             <Button
@@ -466,6 +474,23 @@ export default function UsersPage() {
           )}
         </Card.Content>
       </Card>
+
+      {/* App móvil del superadmin (su cuenta no se edita) */}
+      {mobileOnlyUser && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+              <h2 className="text-xl font-bold">App móvil · {mobileOnlyUser.name || mobileOnlyUser.email}</h2>
+              <Button variant="ghost" size="sm" onClick={() => setMobileOnlyUser(null)}>
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <MobileAppStatus userId={mobileOnlyUser.id} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
