@@ -197,6 +197,7 @@ async function main() {
   await fase6(user)
   await fase7(user)
   await fase8(user)
+  await fase9()
 }
 
 // ───────────────────────── Fase 3: consentimiento, teléfono y web ─────────────────────────
@@ -1099,6 +1100,66 @@ async function fase8(user) {
   check('la marcación con hora sin verificar está en la bandeja, con offline y la hora de llegada', w.status === 200 && unverified?.offline === true && !!unverified?.createdAt, `${w.status} ${JSON.stringify(unverified ?? null).slice(0, 200)}`)
 }
 
+// ───────────────────────── Fase 9: perfil del empleado desde la app ─────────────────────────
+
+const PROFILE_EMAIL = 'smoke.perfil@prueba.local'
+
+async function fase9() {
+  console.log('\n38. Perfil: el empleado completa sus datos')
+  const password = await bcrypt.hash(PASSWORD, 12)
+  await prisma.user.deleteMany({ where: { email: PROFILE_EMAIL } })
+  const u = await prisma.user.create({ data: { email: PROFILE_EMAIL, name: 'Smoke Perfil', password, role: 'USER' } })
+  let r = await call('POST', '/auth/login', {
+    body: { email: PROFILE_EMAIL, password: PASSWORD, device: { installationId: 'smoke-install-perfil', platform: 'android', deviceModel: 'Smoke', appVersion: '0.0.1' } },
+  })
+  const token = r.data?.accessToken
+  r = await call('GET', '/me', { token })
+  check('cuenta nueva sin datos -> profileComplete=false, sin fecha de nacimiento', r.status === 200 && r.data?.profileComplete === false && r.data?.birthDate === null, JSON.stringify(r.data ?? r.json).slice(0, 200))
+
+  r = await call('PATCH', '/me', { token, body: { birthDate: '1995-02-30' } })
+  check('fecha de nacimiento imposible -> 400 VALIDATION_ERROR con el motivo', r.status === 400 && r.code === 'VALIDATION_ERROR' && /fecha/i.test(r.json?.error?.message ?? ''), `${r.status} ${r.code} ${r.json?.error?.message}`)
+  r = await call('PATCH', '/me', { token, body: { cedula: '1000000001' } })
+  check('cédula de otra persona -> 409 CEDULA_TAKEN', r.status === 409 && r.code === 'CEDULA_TAKEN', `${r.status} ${r.code}`)
+
+  r = await call('PATCH', '/me', { token, body: { cedula: '1000000999', phone: '300 555-1234', birthDate: '1995-04-30' } })
+  check('completa cédula, celular y fecha -> profileComplete=true', r.status === 200 && r.data?.profileComplete === true && r.data.cedula === '1000000999' && r.data.phone === '3005551234' && r.data.birthDate === '1995-04-30', JSON.stringify(r.data ?? r.json).slice(0, 200))
+  r = await call('PATCH', '/me', { token, body: { cedula: '1000000998' } })
+  check('cambiar la cédula desde la app -> 409 CEDULA_LOCKED', r.status === 409 && r.code === 'CEDULA_LOCKED', `${r.status} ${r.code}`)
+  r = await call('PATCH', '/me', { token, body: { cedula: '1000000999', phone: '3005559999' } })
+  check('la misma cédula y otro celular -> se guarda el celular', r.status === 200 && r.data?.phone === '3005559999' && r.data?.cedula === '1000000999', `${r.status} ${r.code}`)
+  const audit = await prisma.auditLog.count({ where: { action: 'USER_PROFILE_COMPLETED_IN_APP', entityId: u.id } })
+  check('...queda en el historial', audit >= 2, String(audit))
+
+  console.log('\n39. Foto de perfil desde la app (la misma de la web)')
+  if (!fs.existsSync(SAME_PERSON_IMAGE) || !process.env.R2_PUBLIC_URL) {
+    console.log('  OMITIDO (faltan la foto de prueba o R2_PUBLIC_URL)')
+    return
+  }
+  const form = new FormData()
+  form.append('photo', new Blob([fs.readFileSync(SAME_PERSON_IMAGE)], { type: 'image/jpeg' }), 'perfil.jpg')
+  let res = await fetch(`${API}/me/avatar`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': FAKE_IP }, body: form })
+  let json = await res.json().catch(() => null)
+  const image = json?.data?.image
+  check('POST /me/avatar -> la foto queda en el perfil', res.status === 200 && typeof image === 'string' && image.includes(`/avatars/${u.id}/`), `${res.status} ${JSON.stringify(json).slice(0, 200)}`)
+  check('...y es la misma que lee la web (User.image)', (await prisma.user.findUnique({ where: { id: u.id } }))?.image === image)
+  const bad = new FormData()
+  bad.append('photo', new Blob([Buffer.from('no soy una imagen')], { type: 'image/jpeg' }), 'x.jpg')
+  res = await fetch(`${API}/me/avatar`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': FAKE_IP }, body: bad })
+  json = await res.json().catch(() => null)
+  check('un archivo que no es imagen -> 400 INVALID_IMAGE', res.status === 400 && json?.error?.code === 'INVALID_IMAGE', `${res.status} ${json?.error?.code}`)
+  r = await call('DELETE', '/me/avatar', { token })
+  check('DELETE /me/avatar -> sin foto', r.status === 200 && r.data?.image === null, `${r.status} ${r.code}`)
+}
+
+async function cleanupPhase9() {
+  const u = await prisma.user.findUnique({ where: { email: PROFILE_EMAIL } })
+  if (!u) return
+  await prisma.auditLog.deleteMany({ where: { performedBy: u.id } })
+  await prisma.mobileSession.deleteMany({ where: { userId: u.id } })
+  await prisma.user.delete({ where: { id: u.id } })
+  await prisma.mobileLoginAttempt.deleteMany({ where: { key: { startsWith: `email:${PROFILE_EMAIL}` } } })
+}
+
 async function cleanupPhase6() {
   const users = await prisma.user.findMany({ where: { email: { in: [EMAIL, ...Object.values(PHASE3_EMAILS)] } }, select: { id: true } })
   const ids = users.map((u) => u.id)
@@ -1147,6 +1208,7 @@ main()
   })
   .finally(async () => {
     // Limpieza: los usuarios de prueba y todo lo suyo
+    await cleanupPhase9().catch((e) => console.error('Limpieza fase 9:', e.message))
     await cleanupPhase6().catch((e) => console.error('Limpieza fase 6:', e.message))
     await cleanupPhase5().catch((e) => console.error('Limpieza fase 5:', e.message))
     await cleanupPhase4().catch((e) => console.error('Limpieza fase 4:', e.message))
