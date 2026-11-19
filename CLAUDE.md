@@ -183,7 +183,7 @@ MAP_STYLE_URL="..."               # optional; default OpenFreeMap style in lib/a
 - `postgres.railway.internal` only resolves inside Railway; from a local machine you need the TCP-proxy public URL (`DATABASE_PUBLIC_URL`), which is disabled by default.
 - Production URL: https://www.shock-producciones.com
 - **Railway variable edits are STAGED** until "Deploy" is pressed in the dashboard. A missing/unapplied `MOBILE_JWT_SECRET` makes every mobile endpoint answer `SERVER_MISCONFIGURED` (the app shows "El servidor no está disponible").
-- Attendance Phases 1–7 are live in production since 2026-11-16 (main `d1e9fba`).
+- Attendance Phases 1–7 are live in production since 2026-11-16 (main `d1e9fba`); Phase 8 (offline marking) deployed 2026-11-19. **Deploy order: server before any app build that uses a new API field** — the offline queue treats a 4xx from an older server as a definitive rejection.
 - The production Android APK is built in the app repo (`C:\dev\xenith-asistencia`, see `docs/fase7-resultados.md` §4) with `API_BASE_URL=https://www.shock-producciones.com` embedded at build time. Release builds run R8: the app's `plugins/with-proguard-keep-rules.js` keeps the Nitro classes (vision-camera face detector), otherwise the face camera crashes only in release.
 - The Railway CLI (`railway.exe`) is blocked on the dev machine by Windows Smart App Control ("Una directiva de Control de aplicaciones bloqueó este archivo") — use the Railway dashboard instead.
 
@@ -239,7 +239,8 @@ Backend for the Expo attendance app (repo at `C:\dev\xenith-asistencia`, design 
 - `GET /assignments` includes per-shift `marking` (next type, open entry, locked, attempts left) and recent shifts with an open entry.
 - New error codes: `ENROLLMENT_REQUIRED`, `SHIFT_NOT_ASSIGNED`, `SHIFT_LOCKED`, `MARK_WINDOW_CLOSED`.
 - Web `/dashboard/asistencia/bloqueos` (`/api/attendance/locks*`, `/api/attendance/marks/[id]/photo`): failed selfies next to the reference photo; unlocking needs `asistencia_reportes` edit and a note, and **nobody can unlock their own shift**. Audit actions `ATTENDANCE_SHIFT_UNLOCKED`, `ATTENDANCE_MARK_PHOTO_VIEWED`.
-- Not done yet: offline queue (Phase 8), 90-day selfie deletion (Phase 9).
+- Missing reference photo in the bucket → the mark is NOT lost: `PENDING_REVIEW` with reason `REFERENCE_PHOTO_MISSING` (`applyMissingReference`, `isMissingObjectError`).
+- Not done yet: 90-day selfie deletion (Phase 9).
 
 ### Review & reports (Phase 7)
 - Models `AttendanceMarkReview` (one final decision per PENDING_REVIEW mark, note required; the mark keeps its status) and `AttendanceOvertimeDecision` (per user+shift, `computedMinutes` snapshot + `approvedMinutes`, re-decidable; SQL CHECK approved ≤ computed). Migration `20261117000000_add_attendance_reviews`.
@@ -247,3 +248,9 @@ Backend for the Expo attendance app (repo at `C:\dev\xenith-asistencia`, design 
 - Web `/dashboard/asistencia/revision` (`/api/attendance/reviews*`) and `/dashboard/asistencia/reportes` (`/api/attendance/report[?format=csv]`, `/report/options`, `POST /api/attendance/overtime`). View = `asistencia_reportes` view; deciding = edit. Nobody reviews their own marks or approves their own overtime. Overtime can't be decided while the shift has unreviewed marks. CSV: `;` separator + UTF-8 BOM, formula-injection guarded (`lib/attendance/report-csv.ts`). Audit: `ATTENDANCE_MARK_REVIEWED`, `ATTENDANCE_OVERTIME_DECIDED`, `ATTENDANCE_REPORT_EXPORTED`.
 - `components/attendance/ProtectedPhoto.tsx` (signed-URL photo on click) is shared by the locks and review pages; `AreaMap` accepts `points` (markers).
 - Mobile `GET marks` includes `review` (decision, note, reviewedAt).
+
+### Offline marking (Phase 8)
+- `GET assignments` and `POST marks` return a signed **time anchor** (`timeAnchor`: `v1.<ms>.<HMAC>` with `MOBILE_JWT_SECRET`, bound to the user; `lib/attendance/time-anchor.ts`). The app stores it with its monotonic clock + boot id (local native module `xa-clock` in the app repo).
+- `POST marks` with `offline=true` + `livenessSteps` (challenge chosen by the phone) + `timeAnchor` + `elapsedSinceAnchorMs`, no `attemptId`. Official time = anchor + elapsed; if it can't be verified (no/invalid/stale anchor, reboot, future) → `PENDING_REVIEW` with reason `TIME_UNVERIFIED` and the phone's time clamped to arrival. Same rules as online; the shift window is evaluated at the mark's time. A `LivenessAttempt` with method `device_challenge_offline_v1` is created in the transaction. Thresholds in `config.ts` → `offline`. No migration (`offline`/`reasons` already existed).
+- Idempotency via `(userId, clientMarkId)`: the app's encrypted queue may resend safely. Review page shows "Sin conexión · llegó al servidor el …".
+- Local dev and production share the private bucket `xenith-asistencia` (owner's decision 2026-11-19; test photos are deleted by hand).
