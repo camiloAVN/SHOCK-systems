@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { isMissingObjectError } from '@/lib/storage/r2-private'
 import {
+  applyMissingReference,
   canMarkNow,
   evaluateLocation,
   faceAttemptsState,
@@ -83,5 +85,25 @@ describe('bloqueo por rostros fallidos', () => {
     expect(faceAttemptsState(0)).toEqual({ locked: false, attemptsLeft: 3 })
     expect(faceAttemptsState(2)).toEqual({ locked: false, attemptsLeft: 1 })
     expect(faceAttemptsState(3)).toEqual({ locked: true, attemptsLeft: 0 })
+  })
+})
+
+describe('applyMissingReference', () => {
+  it('sin foto de referencia la marcación va a revisión y conserva los otros motivos', () => {
+    expect(applyMissingReference({ status: 'VALID' as const, reasons: [] })).toEqual({ status: 'PENDING_REVIEW', reasons: ['REFERENCE_PHOTO_MISSING'] })
+    expect(applyMissingReference({ status: 'PENDING_REVIEW' as const, reasons: ['OUT_OF_AREA' as const] })).toEqual({
+      status: 'PENDING_REVIEW',
+      reasons: ['OUT_OF_AREA', 'REFERENCE_PHOTO_MISSING'],
+    })
+  })
+})
+
+describe('isMissingObjectError', () => {
+  it('reconoce "no existe" del bucket y nada más', () => {
+    expect(isMissingObjectError({ name: 'NoSuchKey' })).toBe(true)
+    expect(isMissingObjectError({ name: 'Unknown', $metadata: { httpStatusCode: 404 } })).toBe(true)
+    expect(isMissingObjectError({ name: 'AccessDenied', $metadata: { httpStatusCode: 403 } })).toBe(false)
+    expect(isMissingObjectError(new Error('timeout'))).toBe(false)
+    expect(isMissingObjectError(null)).toBe(false)
   })
 })

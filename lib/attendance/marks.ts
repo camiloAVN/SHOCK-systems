@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { ATTENDANCE_CONFIG } from '@/lib/attendance/config'
 import { consumeAttempt, type LivenessStep } from '@/lib/attendance/enrollment'
 import {
+  applyMissingReference,
   applyTimeVerification,
   canMarkNow,
   COUNTED_STATUSES,
@@ -20,7 +21,7 @@ import { compareFaces, isJpeg } from '@/lib/attendance/rekognition'
 import { shiftWindow } from '@/lib/attendance/shifts'
 import { resolveOfflineTime, signTimeAnchor, verifyTimeAnchor } from '@/lib/attendance/time-anchor'
 import { mobileSecret } from '@/lib/mobile/jwt'
-import { deletePrivateObject, getPrivateObject, markImageKey, putPrivateObject } from '@/lib/storage/r2-private'
+import { deletePrivateObject, getPrivateObject, isMissingObjectError, markImageKey, putPrivateObject } from '@/lib/storage/r2-private'
 import { MobileApiError } from '@/lib/mobile/errors'
 
 /**
@@ -248,10 +249,23 @@ export async function submitMark(p: SubmitMarkParams) {
     status = 'REJECTED'
     reasons = rejected
   } else {
-    const face = await compareFaces(await getPrivateObject(enrollment.imageKey), p.image)
-    similarity = face.found ? face.similarity : null
-    const match = faceMatches(face)
-    if (!match.ok) {
+    const reference = await getPrivateObject(enrollment.imageKey).catch((error) => {
+      if (isMissingObjectError(error)) return null
+      throw error
+    })
+    const face = reference ? await compareFaces(reference, p.image) : null
+    similarity = face?.found ? face.similarity : null
+    const match = face ? faceMatches(face) : null
+    if (!face || !match) {
+      // Falta la foto del registro facial: no se pierde la marcación, va a revisión
+      console.error(`[MARKS] No está en el bucket la foto de referencia ${enrollment.imageKey} de ${p.userId}: la marcación va a revisión`)
+      const location = applyMissingReference(
+        applyTimeVerification(evaluateLocation({ latitude: p.latitude, longitude: p.longitude, accuracyMeters: p.accuracyMeters }, area), timeVerified)
+      )
+      status = location.status
+      reasons = location.reasons
+      distance = location.distanceMeters
+    } else if (!match.ok) {
       status = 'FACE_MISMATCH'
       reasons = [match.reason!]
     } else {

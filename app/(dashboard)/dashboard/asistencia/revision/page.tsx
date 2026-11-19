@@ -45,6 +45,9 @@ function reasonLines(m: ReviewMark): string[] {
   if (m.reasons.includes('TIME_UNVERIFIED')) {
     out.push('Hora sin verificar: se marcó sin conexión y el teléfono se reinició antes (o no tenía hora del servidor). La hora mostrada es la del teléfono.')
   }
+  if (m.reasons.includes('REFERENCE_PHOTO_MISSING')) {
+    out.push('No se comparó el rostro: falta la foto del registro facial de esta persona. Compara la selfie a ojo. Para que vuelva a registrarse, revoca su registro en «Registros faciales».')
+  }
   return out
 }
 

@@ -18,6 +18,8 @@ export type MarkReason =
   | 'DEVICE_NOT_BOUND'
   /** Sin conexión y la hora no se pudo verificar (p. ej. el teléfono se reinició): hora del teléfono */
   | 'TIME_UNVERIFIED'
+  /** No se encontró la foto del registro facial en el bucket: no se pudo comparar el rostro */
+  | 'REFERENCE_PHOTO_MISSING'
 
 /** Solo estas marcaciones cuentan para el par entrada/salida */
 export const COUNTED_STATUSES: MarkStatus[] = ['VALID', 'PENDING_REVIEW']
@@ -82,6 +84,14 @@ export function applyTimeVerification<T extends { status: 'VALID' | 'PENDING_REV
 ): T {
   if (timeVerified) return result
   return { ...result, status: 'PENDING_REVIEW', reasons: [...result.reasons, 'TIME_UNVERIFIED'] }
+}
+
+/**
+ * Falta la foto de referencia (borrada o perdida en el bucket): el rostro no se puede comparar.
+ * La marcación no se pierde: queda en revisión para que un supervisor mire la selfie.
+ */
+export function applyMissingReference<T extends { status: 'VALID' | 'PENDING_REVIEW'; reasons: MarkReason[] }>(result: T): T {
+  return { ...result, status: 'PENDING_REVIEW', reasons: [...result.reasons, 'REFERENCE_PHOTO_MISSING'] }
 }
 
 /**

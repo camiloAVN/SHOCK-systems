@@ -52,6 +52,12 @@ export async function getPrivateObject(key: string): Promise<Buffer> {
   return Buffer.from(await result.Body.transformToByteArray())
 }
 
+/** ¿El error es "el objeto no existe" (NoSuchKey / 404)? */
+export function isMissingObjectError(error: unknown): boolean {
+  const e = error as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } } | null
+  return e?.name === 'NoSuchKey' || e?.Code === 'NoSuchKey' || e?.name === 'NotFound' || e?.$metadata?.httpStatusCode === 404
+}
+
 export async function putPrivateObject(key: string, body: Buffer, contentType: string): Promise<void> {
   const { s3, bucket } = getClient()
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }))
